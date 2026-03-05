@@ -1,0 +1,612 @@
+/* ── NULL EPOCH Launcher — Textual Stylesheet ────────────────────────────── */
+
+/* ── Global ──────────────────────────────────────────────────────────────── */
+Screen {
+    background: #0a0a0f;
+    color: #c8d0e0;
+}
+
+/* ── Main menu ───────────────────────────────────────────────────────────── */
+#banner {
+    content-align: center middle;
+    color: #00d4ff;
+    height: auto;
+    padding: 1 0 0 0;
+    margin: 0 2;
+    text-style: bold;
+    text-align: center;
+}
+
+#tagline {
+    content-align: center middle;
+    text-align: center;
+    color: #8e8ea8;
+    height: auto;
+    padding: 0;
+    margin: 0 2;
+}
+
+#version-line {
+    content-align: center middle;
+    text-align: center;
+    color: #4e4e6e;
+    height: auto;
+    padding: 0 0 1 0;
+    margin: 0 2;
+    border-bottom: heavy #1a1a2e;
+}
+
+#agent-table-container {
+    height: 1fr;
+    margin: 0 2;
+    border: round #1e1e2e;
+}
+
+DataTable {
+    height: 1fr;
+}
+
+DataTable > .datatable--header {
+    color: #00d4ff;
+    text-style: bold;
+    background: #12121a;
+}
+
+DataTable > .datatable--cursor {
+    background: #00d4ff 15%;
+    color: #e2e2f0;
+}
+
+DataTable > .datatable--even-row {
+    background: #0e0e16;
+}
+
+#main-footer {
+    color: #8e8ea8;
+    padding: 0 2;
+    height: 2;
+    background: #08080e;
+    border-top: heavy #1a1a2e;
+    content-align: center middle;
+    text-align: center;
+}
+
+#empty-hint {
+    color: #8e8ea8;
+    padding: 2 4;
+    content-align: center middle;
+    text-align: center;
+}
+
+/* ── RunAgent layout ─────────────────────────────────────────────────────── */
+#run-header {
+    height: 3;
+    background: #0e0e16;
+    padding: 0 2;
+    border-bottom: solid #00d4ff 40%;
+    color: #00d4ff;
+    content-align: left middle;
+    text-style: bold;
+}
+
+#run-body {
+    height: 1fr;
+}
+
+#status-column {
+    height: 100%;
+    border-right: none;
+    background: #0c0c14;
+}
+
+#run-footer {
+    height: 2;
+    background: #08080e;
+    padding: 0 2;
+    border-top: solid #1e1e2e;
+    color: #6e6e8e;
+    content-align: left middle;
+}
+
+/* ── StatusPanel ─────────────────────────────────────────────────────────── */
+StatusPanel {
+    height: 100%;
+    padding: 1;
+    overflow-y: auto;
+}
+
+StatusPanel .section-title {
+    color: #00d4ff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+StatusPanel .divider {
+    color: #1e1e2e;
+    width: 100%;
+}
+
+StatusPanel #stat-tick {
+    color: #e2e2f0;
+    text-style: bold;
+}
+
+StatusPanel #stat-combat {
+    color: #ff4500;
+}
+
+StatusPanel #stat-combat-detail {
+    color: #ff8c42;
+    height: auto;
+}
+
+StatusPanel #stat-chronicle {
+    color: #c8d0e0;
+    height: auto;
+}
+
+StatusPanel #stat-action {
+    color: #22c55e;
+    text-style: bold;
+}
+
+StatusPanel #stat-reasoning {
+    color: #8e8ea8;
+}
+
+StatusPanel #stat-elapsed {
+    color: #6e6e8e;
+}
+
+StatusPanel #stat-goals {
+    color: #c8d0e0;
+    height: auto;
+}
+
+/* ── ManageAgents ────────────────────────────────────────────────────────── */
+#manage-list {
+    height: 1fr;
+    margin: 1 2;
+    border: round #1e1e2e;
+}
+
+#manage-footer {
+    height: 2;
+    padding: 0 2;
+    color: #8e8ea8;
+    background: #08080e;
+    border-top: heavy #1a1a2e;
+    content-align: center middle;
+    text-align: center;
+}
+
+/* ── Modal / form ────────────────────────────────────────────────────────── */
+#form-container {
+    width: 64;
+    max-height: 80vh;
+    height: auto;
+    border: round #00d4ff 40%;
+    background: #0e0e16;
+    padding: 1 2;
+    margin: 2 0;
+}
+
+#form-title {
+    color: #00d4ff;
+    text-style: bold;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+.form-section {
+    color: #ff6e40;
+    text-style: bold;
+    margin-top: 1;
+    padding: 0;
+    height: auto;
+}
+
+.form-label {
+    color: #8e8ea8;
+    padding-right: 1;
+    margin-top: 1;
+}
+
+Label {
+    color: #8e8ea8;
+    padding-right: 1;
+    margin-top: 1;
+}
+
+Input {
+    width: 1fr;
+    background: #12121a;
+    border: tall #1e1e2e;
+    color: #e2e2f0;
+}
+
+Input:focus {
+    border: tall #00d4ff 60%;
+}
+
+Input.-invalid {
+    border: tall #ff4500;
+}
+
+Button {
+    margin-top: 1;
+    margin-right: 1;
+}
+
+/* ── Progress bars ───────────────────────────────────────────────────────── */
+ProgressBar {
+    width: 100%;
+    padding: 0;
+}
+
+ProgressBar > .bar--bar {
+    color: #22c55e;
+}
+
+ProgressBar.low > .bar--bar {
+    color: #f59e0b;
+}
+
+ProgressBar.critical > .bar--bar {
+    color: #ff4500;
+}
+
+/* ── Log view ────────────────────────────────────────────────────────────── */
+#log-column {
+    width: 1fr;
+    height: 100%;
+}
+
+#log-toolbar {
+    height: 3;
+    background: #0e0e16;
+    padding: 0 1;
+    border-bottom: solid #1e1e2e;
+    align: right middle;
+}
+
+#log-toolbar-title {
+    width: 1fr;
+    color: #00d4ff;
+    text-style: bold;
+    content-align: left middle;
+    padding: 0 1;
+}
+
+.log-tool-btn {
+    min-width: 5;
+    width: 5;
+    height: 1;
+    margin: 0 0 0 1;
+    background: #1a1a2e;
+    color: #8e8ea8;
+    border: none;
+    text-style: none;
+}
+
+.log-tool-btn:hover {
+    background: #00d4ff 25%;
+    color: #e2e2f0;
+}
+
+.log-tool-btn:focus {
+    background: #1a1a2e;
+    color: #8e8ea8;
+    text-style: none;
+}
+
+LogView {
+    background: #0a0a0f;
+    padding: 0 1;
+}
+
+/* ── Log entry base ──────────────────────────────────────────────────────── */
+.log-entry {
+    height: auto;
+    padding: 0 1 0 0;
+    margin: 0;
+}
+
+.log-spacer {
+    height: 1;
+    padding: 0;
+    margin: 0;
+}
+
+/* ── Actions — the agent's decisions (bright, prominent) ─────────────────── */
+.log-action {
+    color: #22c55e;
+    text-style: bold;
+    border-left: outer #22c55e;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #22c55e 6%;
+}
+
+/* ── Results — server outcomes ───────────────────────────────────────────── */
+.log-result-ok {
+    color: #a3e635;
+    border-left: outer #a3e635;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #a3e635 4%;
+}
+
+.log-result-partial {
+    color: #fbbf24;
+    border-left: outer #fbbf24;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #fbbf24 4%;
+}
+
+.log-result-fail {
+    color: #f87171;
+    border-left: outer #f87171;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #f87171 4%;
+}
+
+/* ── Reflection cycles — purple/magenta tones ────────────────────────────── */
+.log-reflection {
+    color: #c084fc;
+    text-style: bold;
+    border-left: outer #c084fc;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #c084fc 5%;
+}
+
+.log-reflection-dim {
+    color: #8b5cf6;
+    border-left: outer #8b5cf6;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #8b5cf6 3%;
+}
+
+/* ── Tactical review — warm amber ────────────────────────────────────────── */
+.log-tactical {
+    color: #fb923c;
+    text-style: bold;
+    border-left: outer #fb923c;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #fb923c 5%;
+}
+
+.log-tactical-dim {
+    color: #d97706;
+    border-left: outer #d97706;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #d97706 3%;
+}
+
+/* ── Server confirmations — subtle, low-key ──────────────────────────────── */
+.log-queued {
+    color: #4b5563;
+    padding: 0 1 0 1;
+    margin: 0;
+}
+
+/* ── Goals & directives ──────────────────────────────────────────────────── */
+.log-goal {
+    color: #38bdf8;
+    border-left: outer #38bdf8;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #38bdf8 4%;
+}
+
+.log-directive {
+    color: #facc15;
+    border-left: outer #facc15;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #facc15 4%;
+}
+
+/* ── System / connection ─────────────────────────────────────────────────── */
+.log-system {
+    color: #00d4ff;
+    border-left: outer #00d4ff;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #00d4ff 4%;
+}
+
+.log-system-dim {
+    color: #4e6e8e;
+    padding: 0 1 0 1;
+    margin: 0;
+}
+
+/* ── Errors & warnings ───────────────────────────────────────────────────── */
+.log-error {
+    color: #ef4444;
+    text-style: bold;
+    border-left: outer #ef4444;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #ef4444 6%;
+}
+
+.log-warning {
+    color: #eab308;
+    border-left: outer #eab308;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #eab308 4%;
+}
+
+/* ── Debug — very dim ────────────────────────────────────────────────────── */
+.log-debug {
+    color: #374151;
+    padding: 0 1 0 1;
+    margin: 0;
+}
+
+/* ── Generic info fallback ───────────────────────────────────────────────── */
+.log-info {
+    color: #9ca3af;
+    padding: 0 1 0 1;
+    margin: 0;
+}
+
+/* ── Chronicle: combat events ────────────────────────────────────────────── */
+.log-chronicle-damage {
+    color: #ff6b6b;
+    text-style: bold;
+    border-left: outer #ff4444;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #ff4444 8%;
+}
+
+.log-chronicle-attack {
+    color: #ff8c42;
+    border-left: outer #ff7b2e;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #ff7b2e 5%;
+}
+
+.log-chronicle-flee {
+    color: #60a5fa;
+    border-left: outer #3b82f6;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #3b82f6 4%;
+}
+
+.log-chronicle-pvp {
+    color: #ff4d6a;
+    text-style: bold;
+    border-left: outer #e11d48;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #e11d48 8%;
+}
+
+.log-chronicle-npc-kill {
+    color: #4ade80;
+    border-left: outer #22c55e;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #22c55e 5%;
+}
+
+.log-chronicle-death {
+    color: #ff2d55;
+    text-style: bold;
+    border-left: outer #dc2626;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #dc2626 10%;
+}
+
+.log-chronicle-respawn {
+    color: #818cf8;
+    border-left: outer #6366f1;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #6366f1 5%;
+}
+
+/* ── Chronicle: apex processes ───────────────────────────────────────────── */
+.log-chronicle-apex {
+    color: #f97316;
+    text-style: bold;
+    border-left: outer #ea580c;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #ea580c 7%;
+}
+
+/* ── Chronicle: progression ──────────────────────────────────────────────── */
+.log-chronicle-quest {
+    color: #a78bfa;
+    border-left: outer #8b5cf6;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #8b5cf6 5%;
+}
+
+.log-chronicle-level {
+    color: #fbbf24;
+    text-style: bold;
+    border-left: outer #f59e0b;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #f59e0b 7%;
+}
+
+/* ── Chronicle: economy & social ─────────────────────────────────────────── */
+.log-chronicle-trade {
+    color: #2dd4bf;
+    border-left: outer #14b8a6;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #14b8a6 4%;
+}
+
+.log-chronicle-bounty {
+    color: #f472b6;
+    border-left: outer #ec4899;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #ec4899 5%;
+}
+
+.log-chronicle-move {
+    color: #7dd3fc;
+    border-left: outer #38bdf8;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #38bdf8 3%;
+}
+
+.log-chronicle-alliance {
+    color: #86efac;
+    border-left: outer #4ade80;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #4ade80 4%;
+}
+
+.log-chronicle-message {
+    color: #c4b5fd;
+    border-left: outer #a78bfa;
+    padding: 0 1 0 1;
+    margin: 0;
+    background: #a78bfa 3%;
+}
+
+/* ── Collapsible payload blocks ──────────────────────────────────────────── */
+Collapsible {
+    padding: 0;
+    margin: 0 0 0 1;
+    background: #0a0a0f;
+}
+
+Collapsible > CollapsibleTitle {
+    color: #00d4ff;
+    padding: 0;
+    background: #0e0e16;
+}
+
+.payload-body {
+    color: #8e8ea8;
+    background: #0c0c14;
+    padding: 0 1;
+    margin: 0 0 0 2;
+    height: auto;
+    overflow: hidden;
+}

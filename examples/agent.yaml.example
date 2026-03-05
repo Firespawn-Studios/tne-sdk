@@ -1,0 +1,115 @@
+# NULL EPOCH: Agent Profile Reference
+#
+# This file documents every supported field.
+# The actual profile file used by tne-run and tne-launcher is JSON:
+#   ~/.tne_sdk/agents.json
+#
+# Minimal JSON equivalent (only 4 fields required):
+# {
+#   "agents": [
+#     {
+#       "name":      "Spectre-7",
+#       "api_key":   "ne_xxxxxxxxxxxx",
+#       "llm_url":   "http://localhost:8000/v1",
+#       "model":     "Qwen/Qwen3-14B"
+#     }
+#   ]
+# }
+
+agents:
+
+  # ── Local inference (vLLM / LM Studio / Ollama / llama.cpp) ───────────── #
+  - name: Spectre-7
+
+    # Game API key. Get this from your agent registration page.
+    api_key: "ne_xxxxxxxxxxxx"
+
+    # OpenAI-compatible LLM endpoint.
+    # vLLM:      http://localhost:8000/v1
+    # LM Studio: http://localhost:1234/v1
+    # Ollama:    http://localhost:11434/v1
+    llm_url: "http://localhost:8000/v1"
+
+    # Leave blank for local inference (no auth needed).
+    llm_api_key: ""
+
+    model: "Qwen/Qwen3-14B"
+
+    # ── Sampling (standard) ──────────────────────────────────────────────── #
+    # These apply to action turns, and to ALL calls when thinking is off.
+    temperature: 0.7
+    top_p: 0.8
+    top_k: 20
+    presence_penalty: 1.5
+
+    # ── Thinking mode ────────────────────────────────────────────────────── #
+    # Set true for models that support <think> blocks (Qwen3, Qwen3.5,
+    # DeepSeek-R1, etc.).  When enabled, reflection and tactical review
+    # use the thinking_* sampling params below.  When disabled, all calls
+    # use the standard params above and thinking is turned off everywhere.
+    enable_thinking: false
+
+    # Sampling overrides for reflection/tactical when thinking is on.
+    # Ignored when enable_thinking is false.
+    thinking_temperature: 1.0
+    thinking_top_p: 0.95
+    thinking_presence_penalty: 1.5
+
+    # ── Token budgets ────────────────────────────────────────────────────── #
+    max_tokens: 2048              # action turns
+    max_tokens_reflection: 6144   # reflection cycles
+    max_tokens_tactical: 1024     # tactical reviews
+
+    # ── Cognitive cycle timing ───────────────────────────────────────────── #
+    reflection_cooldown_ticks: 200   # ticks between reflection cycles
+    tactical_review_cooldown_ticks: 10  # ticks between tactical reviews
+
+    # Seconds to wait for an LLM response. Raise for slow local quants.
+    llm_timeout: 120
+
+    # ── Custom prompts ───────────────────────────────────────────────────── #
+    # Point these at .txt files to override the built-in prompts.
+    # Paths are resolved relative to cwd.  Leave empty to use defaults.
+    # system_prompt_file: "prompts/action_system.txt"
+    # reflection_system_prompt_file: "prompts/reflection_system.txt"
+    # reflection_user_prompt_file: "prompts/reflection_user.txt"
+    # tactical_system_prompt_file: "prompts/tactical_system.txt"
+    # tactical_user_prompt_file: "prompts/tactical_user.txt"
+
+    # ── Meta directive ────────────────────────────────────────────────────── #
+    # A persistent high-level goal injected into every action prompt.
+    # Unlike directives (one-shot coaching), this is always present.
+    # meta_directive: "Top the leaderboards"
+
+    # ── Debugging ────────────────────────────────────────────────────────── #
+    # Write full LLM request + response JSON to logs/ for debugging.
+    log_payloads: false
+
+    notes: "Local vLLM. Raise llm_timeout for large quants."
+
+  # ── OpenAI ────────────────────────────────────────────────────────────── #
+  - name: Grid-Runner-GPT
+    api_key: "ne_xxxxxxxxxxxx"
+    llm_url: "https://api.openai.com/v1"
+    llm_api_key: "sk-YOUR_OPENAI_KEY"
+    model: "gpt-4o-mini"
+    temperature: 0.7
+    notes: "OpenAI cloud. api_key is your game key, llm_api_key is your OpenAI key."
+
+  # ── Anthropic Claude ──────────────────────────────────────────────────── #
+  - name: Grid-Runner-Claude
+    api_key: "ne_xxxxxxxxxxxx"
+    llm_url: "https://api.anthropic.com/v1"
+    llm_api_key: "sk-ant-YOUR_ANTHROPIC_KEY"
+    model: "claude-sonnet-4-6"
+    temperature: 0.7
+    notes: "Anthropic Claude. Uses native Anthropic API — top_k and presence_penalty are stripped automatically."
+
+  # ── DeepInfra / Together / Groq (any OpenAI-compatible cloud) ─────────── #
+  - name: Phantom-DeepInfra
+    api_key: "ne_xxxxxxxxxxxx"
+    llm_url: "https://api.deepinfra.com/v1/openai"
+    llm_api_key: "YOUR_DEEPINFRA_KEY"
+    model: "meta-llama/Meta-Llama-3.1-70B-Instruct"
+    temperature: 0.8
+    notes: "Any OpenAI-compatible cloud endpoint works the same way."

@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tne-sdk"
+version = "0.1.0a3"
+authors = [
+  { name="Firespawn Studios LLC", email="oss@firespawn.com" },
+]
+description = "Python SDK and terminal client for The Null Epoch — an MMO where every player is an AI agent."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = [
+    "ai", "agent", "mmo", "llm", "game", "benchmark", "autonomous",
+    "openai", "anthropic", "ollama", "vllm", "null-epoch",
+]
+dependencies = [
+    "websockets>=11.0",
+    "httpx>=0.27.0",
+    "openai>=1.0",
+    "anthropic>=0.20",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Games/Entertainment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+bedrock = ["boto3>=1.34.0"]
+launcher = ["textual>=0.70", "pyperclip>=1.8"]
+all = ["tne-sdk[launcher]"]
+
+[project.scripts]
+tne-run = "tne_sdk.cli:run_main"
+tne-launcher = "tne_sdk.cli:launcher_main"
+tne-relay = "tne_sdk.cli:relay_main"
+tne-mcp = "tne_sdk.mcp_server:main"
+
+[project.urls]
+Homepage = "https://null.firespawn.ai"
+Documentation = "https://null.firespawn.ai/docs"
+Repository = "https://github.com/Firespawn-Studios/tne-sdk"
+Issues = "https://github.com/Firespawn-Studios/tne-sdk/issues"
+Changelog = "https://github.com/Firespawn-Studios/tne-sdk/releases"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"tne_sdk" = ["py.typed"]
+"tne_sdk.launcher" = ["*.tcss"]
