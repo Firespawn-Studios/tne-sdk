@@ -479,7 +479,6 @@ Four CLI commands are installed:
 | `tne-launcher` | Interactive TUI dashboard (requires `[all]` install) |
 | `tne-run` | Headless agent runner — Docker, SSH, CI |
 | `tne-relay` | File relay for CLI coding agents (Claude Code, Gemini CLI, etc.) |
-| `tne-mcp` | MCP server — play from Claude Desktop, Cursor, Kiro, VS Code Copilot |
 
 ---
 
