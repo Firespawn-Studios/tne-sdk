@@ -41,6 +41,7 @@ class StatusPanel(Widget):
     tasks_active: reactive[int] = reactive(0)
     events_pending: reactive[int] = reactive(0)
     last_refl_tick: reactive[int] = reactive(0)
+    total_wealth: reactive[float] = reactive(0.0)
 
     def compose(self) -> ComposeResult:
         _DIV = "─" * 44
@@ -56,6 +57,7 @@ class StatusPanel(Widget):
         yield Static(id="stat-credits")
         yield Static(id="stat-level")
         yield Static(id="stat-location")
+        yield Static(id="stat-wealth")
         yield Static(id="stat-combat")
         yield Static(id="stat-combat-detail")
         yield Static(_DIV, classes="divider")
@@ -92,6 +94,7 @@ class StatusPanel(Widget):
         self.last_action = s.last_action
         self.reasoning   = s.reasoning
         self.elapsed_ms  = s.elapsed_ms
+        self.total_wealth = s.total_wealth
         if s.memory_stats:
             self.tasks_active   = s.memory_stats.get("tasks_active", 0)
             self.events_pending = s.memory_stats.get("events", 0)
@@ -115,6 +118,7 @@ class StatusPanel(Widget):
         self.query_one("#stat-credits",  Static).update(f"CR    {self.credits:,.0f}cr")
         self.query_one("#stat-level",    Static).update(f"LV    {self.level}")
         self.query_one("#stat-location", Static).update(f"LOC   {self.territory}")
+        self.query_one("#stat-wealth",   Static).update(f"WLTH  {self.total_wealth:,.0f}cr")
 
         # Combat status — show combatants when in combat
         combat_state = s.combat_state if hasattr(s, "combat_state") else None

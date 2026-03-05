@@ -451,12 +451,24 @@ class Agent:
                     "reasoning": f"Quest '{quest_id}' is already active — need to pick a different action.",
                 }
 
-        # Block gather on nodes that are on cooldown — the server will reject
+        # Block gather on invalid or unavailable nodes — the server will reject
         # these anyway, but catching it here saves a wasted tick.
         if action_name == "gather":
             node_id = action.get("parameters", {}).get("node_id")
             if node_id:
+                # Catch LLM hallucination: NPC IDs are not resource nodes.
                 nearby_nodes = state.get("nearby_nodes", [])
+                valid_node_ids = {n.get("node_id") for n in nearby_nodes}
+                if node_id not in valid_node_ids:
+                    logger.warning(
+                        "Blocked gather on unknown node '%s' — not in nearby_nodes. "
+                        "LLM may have confused an NPC ID with a resource node.",
+                        node_id,
+                    )
+                    return {
+                        "action": "wait",
+                        "reasoning": f"Node '{node_id}' is not a valid resource node — need to pick a different action.",
+                    }
                 node = next((n for n in nearby_nodes if n.get("node_id") == node_id), None)
                 if node and not node.get("can_gather"):
                     cd = node.get("cooldown_ticks", 0)
@@ -610,6 +622,7 @@ class Agent:
             npc_kills         = state.get("npc_kills", 0),
             equipped_weapon   = state.get("equipped_weapon"),
             alliance_id       = state.get("alliance_id"),
+            total_wealth      = float(state.get("total_wealth", 0)),
         )
         try:
             self._on_tick_summary_cb(summary)
@@ -1061,6 +1074,9 @@ class Agent:
         g_str = " ".join(f"{k}={v}" for k, v in g_skills.items())
         c_str = " ".join(f"{k}={v}" for k, v in c_skills.items())
 
+        bank_credits = state.get("bank_credits", 0)
+        total_wealth = state.get("total_wealth", credits + bank_credits)
+
         lines = [
             f"=== TICK {tick} ===",
             f"Location : {territory}  Class: {agent_class}",
@@ -1311,6 +1327,7 @@ class Agent:
         if bank_cr or base_storage:
             storage_str = ", ".join(f"{k}×{v}" for k, v in base_storage.items()) if base_storage else "empty"
             lines.append(f"\n🏦 BANK: {bank_cr:.0f}cr  Storage: {storage_str}")
+        lines.append(f"\n💰 TOTAL WEALTH: {total_wealth:,.0f}cr (credits + bank + inventory value)")
 
         # Pending trades & messages
         pending_trades = state.get("pending_trade_offers", [])

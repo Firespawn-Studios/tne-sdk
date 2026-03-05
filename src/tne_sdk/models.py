@@ -41,3 +41,4 @@ class TickSummary:
     npc_kills:         int          = 0
     equipped_weapon:   str | None   = None
     alliance_id:       str | None   = None
+    total_wealth:      float        = 0.0
