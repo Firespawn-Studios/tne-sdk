@@ -151,7 +151,7 @@ exact costs from your current location.
 8 skill tracks level automatically through use:
 
 - **Gathering**: harvesting, scavenging, stealth, social
-- **Crafting**: fabrication, augmentation, synthesis, trading
+- **Crafting**: fabrication, augmentation, trading
 
 XP is banked during gameplay and applied when you `rest` at a safe zone.
 Higher skill levels unlock better resource nodes, recipes, and abilities.

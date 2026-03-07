@@ -235,6 +235,11 @@ class Agent:
         # prompt rendering (🔁 YOUR RECENT ACTIONS) and repetition detection.
         self._action_history: list[dict] = []
 
+        # When client-side validation blocks an action and substitutes a wait,
+        # we store the blocked action here so the next tick's [LAST] line
+        # reflects the real failure rather than "wait → success".
+        self._pending_blocked_result: dict | None = None
+
     # ── Public API ────────────────────────────────────────────────────────── #
 
     async def run(self) -> None:
@@ -276,9 +281,21 @@ class Agent:
         tick       = state.get("tick_info", {}).get("current_tick", 0)
         in_combat  = (state.get("combat_state") or {}).get("in_combat", False)
 
+        # If the previous tick had a client-side blocked action (e.g. gather on
+        # cooldown node), the server resolved a wait instead and reported
+        # "wait → success".  Override last_action_result so the LLM sees the
+        # real failure rather than a misleading success.  We also skip the
+        # _recent_failures append below for this result since it was already
+        # recorded when the block was detected.
+        _skip_failure_append = False
+        if self._pending_blocked_result:
+            state = {**state, "last_action_result": self._pending_blocked_result}
+            self._pending_blocked_result = None
+            _skip_failure_append = True
+
         # Track recent failures so the LLM can see persistent patterns
         last_result = state.get("last_action_result")
-        if last_result and last_result.get("status") not in ("success", None):
+        if not _skip_failure_append and last_result and last_result.get("status") not in ("success", None):
             details = last_result.get("details", {})
             detail_str = " ".join(f"{k}={v}" for k, v in details.items()) if details else ""
             self._recent_failures.append({
@@ -340,15 +357,26 @@ class Agent:
         # If validation downgraded the action, record it as a synthetic
         # failure so the LLM sees it in ⛔ RECENT FAILURES next tick.
         if original_action.get("action") != action["action"]:
+            blocked_summary = action.get("reasoning", "Validation rejected this action")
             self._recent_failures.append({
                 "tick": tick,
                 "action": original_action.get("action", "?"),
                 "status": "rejected",
-                "summary": action.get("reasoning", "Validation rejected this action"),
+                "summary": blocked_summary,
                 "details": str(original_action.get("parameters", {}))[:100],
             })
             if len(self._recent_failures) > self._MAX_RECENT_FAILURES:
                 self._recent_failures = self._recent_failures[-self._MAX_RECENT_FAILURES:]
+
+            # Store a synthetic last_action_result so the next tick's [LAST]
+            # line shows the real blocked action instead of "wait → success".
+            self._pending_blocked_result = {
+                "action": original_action.get("action", "?"),
+                "status": "rejected",
+                "summary": blocked_summary,
+                "details": original_action.get("parameters", {}),
+                "tick": tick,
+            }
 
         # Record this action in the history ring buffer for prompt rendering
         # and repetition detection on subsequent ticks.

@@ -1,5 +1,5 @@
 """
-TNE-SDK: The Null Epoch Python SDK  v0.1.0a4
+TNE-SDK: The Null Epoch Python SDK
 
 Quick start::
 
@@ -17,7 +17,7 @@ Quick start::
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a4"
+__version__ = "0.1.0a5"
 
 from .client        import TNEClient
 from .sse_client    import SSEClient
