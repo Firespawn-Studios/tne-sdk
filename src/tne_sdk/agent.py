@@ -590,18 +590,36 @@ class Agent:
             for param_name, param_def in schema["parameters"].items():
                 if param_name not in params:
                     continue
-                # Check against valid_values if the server provides them
+                # Check against valid_values if the server provides them.
+                # valid_values may be a list of plain strings OR a list of dicts
+                # with an "id" key (e.g. nearby_agents).  The LLM may also pass
+                # the full object dict instead of just the id string — normalise both.
                 valid_values = param_def.get("valid_values", [])
-                if valid_values and params[param_name] not in valid_values:
-                    logger.warning(
-                        "Invalid value '%s' for %s.%s (valid: %s). Falling back to wait.",
-                        params[param_name], action_name, param_name,
-                        valid_values[:6],
-                    )
-                    return {
-                        "action": "wait",
-                        "reasoning": f"Invalid param '{params[param_name]}' for {action_name}.{param_name}.",
+                if valid_values:
+                    # Normalise valid_values to a flat set of string IDs
+                    valid_ids = {
+                        (v["id"] if isinstance(v, dict) and "id" in v else v)
+                        for v in valid_values
                     }
+                    # Normalise the submitted value to a string ID
+                    submitted = params[param_name]
+                    if isinstance(submitted, dict):
+                        submitted = submitted.get("id", submitted)
+                    elif isinstance(submitted, list) and len(submitted) == 1:
+                        inner = submitted[0]
+                        submitted = inner.get("id", inner) if isinstance(inner, dict) else inner
+                    if submitted not in valid_ids:
+                        logger.warning(
+                            "Invalid value '%s' for %s.%s (valid: %s). Falling back to wait.",
+                            params[param_name], action_name, param_name,
+                            valid_values[:6],
+                        )
+                        return {
+                            "action": "wait",
+                            "reasoning": f"Invalid param '{params[param_name]}' for {action_name}.{param_name}.",
+                        }
+                    # Coerce the param to the plain string ID so the server always gets a string
+                    params[param_name] = submitted
 
         return action
 
