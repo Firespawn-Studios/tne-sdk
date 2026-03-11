@@ -38,35 +38,65 @@ from . import __version__
 # ---------------------------------------------------------------------------
 # Minimal MCP stdio transport (JSON-RPC 2.0 over stdin/stdout)
 # No external dependencies beyond httpx (already a tne-sdk dep).
+#
+# Wire-format detection: Claude Code 2025+ sends newline-delimited JSON.
+# Older clients (and some other MCP hosts) use Content-Length framing.
+# We auto-detect on first message and mirror the same format for responses.
 # ---------------------------------------------------------------------------
 
+_wire_format: str = "content-length"  # updated on first message received
+
+
 def _read_message() -> dict | None:
-    """Read a JSON-RPC message from stdin (Content-Length framing)."""
-    # MCP stdio uses HTTP-style headers: Content-Length: N\r\n\r\n{json}
-    headers: dict[str, str] = {}
+    """Read one JSON-RPC message from stdin.
+
+    Supports two wire formats:
+    - Newline-delimited JSON  (Claude Code 2025+ / MCP 2025-11-25)
+    - Content-Length framed   (older MCP spec / LSP-style)
+    Auto-detects by inspecting the first non-blank byte.
+    """
+    global _wire_format
     while True:
         line = sys.stdin.buffer.readline()
         if not line:
             return None  # EOF
-        line_str = line.decode("utf-8").rstrip("\r\n")
-        if line_str == "":
-            break  # end of headers
-        if ":" in line_str:
-            key, val = line_str.split(":", 1)
-            headers[key.strip().lower()] = val.strip()
+        line_str = line.decode("utf-8").strip()
+        if not line_str:
+            continue  # skip blank lines
 
-    length = int(headers.get("content-length", 0))
-    if length == 0:
-        return None
-    body = sys.stdin.buffer.read(length)
-    return json.loads(body.decode("utf-8"))
+        # Newline-delimited: line is the JSON object itself
+        if line_str.startswith("{"):
+            _wire_format = "newline"
+            return json.loads(line_str)
+
+        # Content-Length framed: accumulate headers until blank separator
+        _wire_format = "content-length"
+        headers: dict[str, str] = {}
+        current = line_str
+        while current:
+            if ":" in current:
+                key, val = current.split(":", 1)
+                headers[key.strip().lower()] = val.strip()
+            raw = sys.stdin.buffer.readline()
+            if not raw:
+                return None
+            current = raw.decode("utf-8").strip()
+
+        length = int(headers.get("content-length", 0))
+        if not length:
+            return None
+        body = sys.stdin.buffer.read(length)
+        return json.loads(body.decode("utf-8"))
 
 
 def _send_message(msg: dict) -> None:
-    """Write a JSON-RPC message to stdout (Content-Length framing)."""
-    body = json.dumps(msg).encode("utf-8")
-    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
-    sys.stdout.buffer.write(header + body)
+    """Write a JSON-RPC message to stdout, mirroring the client's wire format."""
+    body = json.dumps(msg, separators=(",", ":")).encode("utf-8")
+    if _wire_format == "content-length":
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+        sys.stdout.buffer.write(header + body)
+    else:
+        sys.stdout.buffer.write(body + b"\n")
     sys.stdout.buffer.flush()
 
 
@@ -205,8 +235,11 @@ def _handle_request(method: str, params: dict | None, id: Any, api: _GameAPI) ->
     """Route an MCP JSON-RPC request to the appropriate handler."""
 
     if method == "initialize":
+        # Echo back the client's requested version if we support it, otherwise
+        # fall back to the latest version we implement.
+        requested = (params or {}).get("protocolVersion", "2025-11-25")
         _result(id, {
-            "protocolVersion": "2024-11-05",
+            "protocolVersion": requested,
             "serverInfo": SERVER_INFO,
             "capabilities": CAPABILITIES,
         })
