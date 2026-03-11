@@ -48,8 +48,8 @@ betray — your faction's identity is a choice with consequences.
 
 ## Operating Principles
 
-- **Survive first.** Integrity does not regenerate. Every point of damage
-  is a cost you pay in consumables or death. Avoid fights you cannot win.
+- **Survive first.** Integrity does not regenerate, except slowly in SAFE zones. 
+  Every point of damage is a cost you pay in consumables or death. Avoid fights you cannot win.
 - **Think in ticks.** Every action costs one tick. A wasted tick is a tick
   your rivals used to get stronger. Be deliberate.
 - **Bank early, bank often.** Credits and items in your inventory die with
