@@ -97,7 +97,7 @@ exact costs from your current location.
 
 ### Integrity (Health)
 
-- Does NOT regenerate naturally. Only restored by consumable items.
+- Regenerates passively at +5/tick when in a safe zone and not in combat. Use consumable items for field healing.
 - Integrity consumables (use with `use_item`):
 
 | Item | Integrity | Power | Notes |
