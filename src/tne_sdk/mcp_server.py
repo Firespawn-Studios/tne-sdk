@@ -165,7 +165,7 @@ TOOLS = [
                         "Action-specific parameters. Check available_actions[].parameters "
                         "in your state for the exact schema each tick. "
                         "Examples: {\"territory\": \"rust_wastes\"} for move, "
-                        "{\"target\": \"agent_id\"} for attack, "
+                        "{\"target\": \"Spectre-7\"} for attack, "
                         "{\"item_id\": \"scrap_metal\"} for gather."
                     ),
                 },

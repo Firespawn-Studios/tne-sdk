@@ -596,11 +596,16 @@ class Agent:
                 # the full object dict instead of just the id string — normalise both.
                 valid_values = param_def.get("valid_values", [])
                 if valid_values:
-                    # Normalise valid_values to a flat set of string IDs
-                    valid_ids = {
-                        (v["id"] if isinstance(v, dict) and "id" in v else v)
-                        for v in valid_values
-                    }
+                    # Normalise valid_values to a flat set of string IDs and names
+                    valid_ids = set()
+                    for v in valid_values:
+                        if isinstance(v, dict):
+                            if "id" in v:
+                                valid_ids.add(v["id"])
+                            if "name" in v:
+                                valid_ids.add(v["name"])
+                        else:
+                            valid_ids.add(v)
                     # Normalise the submitted value to a string ID
                     submitted = params[param_name]
                     if isinstance(submitted, dict):
@@ -1227,7 +1232,7 @@ class Agent:
                 lines.append(f"\n📖 NARRATIVE: {str(narrative)[:280]}")
 
             in_combat  = combat.get("in_combat", False)
-            enemy_ids  = [n.get("npc_id") for n in nearby_npcs[:5] if n.get("npc_id")]
+            enemy_ids  = [n.get("name") for n in nearby_npcs[:5] if n.get("name")]
             if in_combat:
                 enemy_ids += [c.get("name") for c in combat.get("combatants", []) if c.get("name")]
             for eid in enemy_ids:
@@ -1482,8 +1487,8 @@ class Agent:
 
         if nearby_npcs:
             lines.append("\nNearby NPCs:\n" + "\n".join(
-                f"  - {n['name']} (id={n['npc_id']}, lv{n['level']}, {n['power_indicator']}"
-                f"{'⚡ aggressive' if n.get('is_aggressive') else ''})"
+                f"  - {n['name']} (lv{n['level']}, {n['power_indicator']}"
+                f"{' ⚡ aggressive' if n.get('is_aggressive') else ''})"
                 for n in nearby_npcs[:5]
             ))
 
@@ -1491,7 +1496,7 @@ class Agent:
             _rel_icons = {"RIVAL": "⚔", "ALLY": "✓", "CAUTIOUS": "⚠", "NEUTRAL": "~", "UNKNOWN": "?"}
             lines.append("\nNearby agents:\n" + "\n".join(
                 f"  - {_rel_icons.get(a.get('relation', ''), '?')} {a.get('relation', '?')} {a['name']} "
-                f"(id={a['agent_id']}, lv{a['level']}, {a['faction']}, {a['power_indicator']})"
+                f"(lv{a['level']}, {a['faction']}, {a['power_indicator']})"
                 for a in nearby_agents[:5]
             ))
 

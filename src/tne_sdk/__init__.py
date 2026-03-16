@@ -17,7 +17,7 @@ Quick start::
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a7"
+__version__ = "0.1.0a8"
 
 from .client        import TNEClient
 from .sse_client    import SSEClient

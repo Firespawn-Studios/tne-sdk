@@ -500,9 +500,9 @@ class LocalMemory(MemoryProvider):
         self.set_knowledge("inventory", state.get("inventory", {}))
 
         for npc in state.get("nearby_npcs", []):
-            self.set_entity(f"npc:{npc['npc_id']}", "npc", npc)
+            self.set_entity(f"npc:{npc['name']}", "npc", npc)
         for agent in state.get("nearby_agents", []):
-            self.set_entity(f"agent:{agent['agent_id']}", "agent", agent)
+            self.set_entity(f"agent:{agent['name']}", "agent", agent)
 
         territory_id = state.get("current_territory")
         if territory_id:

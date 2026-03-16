@@ -24,7 +24,7 @@ Respond with ONLY a JSON object. No explanation, no markdown, no extra text.
 
 Action format:
   {"action": "move",    "parameters": {"territory": "rust_wastes"}, "reasoning": "..."}
-  {"action": "attack",  "parameters": {"target": "npc_id"},         "reasoning": "..."}
+  {"action": "attack",  "parameters": {"target": "Spectre-7"},         "reasoning": "..."}
   {"action": "gather",  "parameters": {"node_id": "node_scrap_1"},  "reasoning": "..."}
   {"action": "craft",   "parameters": {"item_id": "repair_kit"},    "reasoning": "..."}
   {"action": "accept_quest", "parameters": {"quest_id": "q_fetch_deep_loop_12380"}, "reasoning": "..."}
