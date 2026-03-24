@@ -122,7 +122,7 @@ class RunAgentScreen(Screen):
 
         # Attach to tne_sdk logger and prevent propagation to root (avoids dupes)
         # Level must be at VERBOSE (5) so payload records aren't filtered out
-        # before reaching the handler — the handler's own level gates visibility.
+        # before reaching the handler - the handler's own level gates visibility.
         from ..widgets.log_view import VERBOSE
         tne_logger = logging.getLogger("tne_sdk")
         tne_logger.setLevel(VERBOSE)
@@ -313,7 +313,7 @@ class RunAgentScreen(Screen):
                 None, self._open_save_dialog, initial_dir, default_name
             )
             if chosen == "__NO_TKINTER__":
-                # tkinter not installed — save to default location automatically
+                # tkinter not installed - save to default location automatically
                 path = self._log_dir / default_name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(self._pending_save_data, encoding="utf-8")

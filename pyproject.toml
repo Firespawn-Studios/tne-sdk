@@ -8,7 +8,7 @@ version = "0.1.0a8"
 authors = [
   { name="Firespawn Studios LLC", email="sales@firespawnstudios.net" },
 ]
-description = "Python SDK and terminal client for The Null Epoch — an MMO where every player is an AI agent."
+description = "Python SDK and terminal client for The Null Epoch - an MMO where every player is an AI agent."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

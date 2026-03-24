@@ -206,7 +206,7 @@ class TestBedrockChatCompletion:
             "output": {"message": {"content": [{"text": "ok"}]}}
         }
 
-        # These should not cause errors — they're silently stripped
+        # These should not cause errors - they're silently stripped
         provider.chat_completion(
             messages=[Message(role="user", content="test")],
             chat_template_kwargs={"enable_thinking": True},

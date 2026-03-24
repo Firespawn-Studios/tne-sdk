@@ -3,8 +3,8 @@ TNE-SDK Launcher: Status Panel Widget
 
 Left column of the RunAgent screen.  Reacts to TickSummary updates via
 reactive variables for zero-flicker live refresh.  Includes a compact
-chronicle feed showing recent world events — damage taken, kills, quests,
-and more — so the TUI feels like watching the game live.
+chronicle feed showing recent world events - damage taken, kills, quests,
+and more - so the TUI feels like watching the game live.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class StatusPanel(Widget):
     """Displays agent stats derived from the most recent TickSummary."""
 
     tick:      reactive[int]   = reactive(0)
-    territory: reactive[str]   = reactive("—")
+    territory: reactive[str]   = reactive("-")
     integrity: reactive[int]   = reactive(0)
     max_int:   reactive[int]   = reactive(1)
     power:     reactive[int]   = reactive(0)
@@ -33,9 +33,9 @@ class StatusPanel(Widget):
     context:   reactive[float] = reactive(0.0)
     credits:   reactive[float] = reactive(0.0)
     level:     reactive[int]   = reactive(1)
-    faction:   reactive[str]   = reactive("—")
+    faction:   reactive[str]   = reactive("-")
     in_combat: reactive[bool]  = reactive(False)
-    last_action: reactive[str] = reactive("—")
+    last_action: reactive[str] = reactive("-")
     reasoning:   reactive[str] = reactive("")
     elapsed_ms:  reactive[float] = reactive(0.0)
     tasks_active: reactive[int] = reactive(0)
@@ -120,7 +120,7 @@ class StatusPanel(Widget):
         self.query_one("#stat-location", Static).update(f"LOC   {self.territory}")
         self.query_one("#stat-wealth",   Static).update(f"WLTH  {self.total_wealth:,.0f}cr")
 
-        # Combat status — show combatants when in combat
+        # Combat status - show combatants when in combat
         combat_state = s.combat_state if hasattr(s, "combat_state") else None
         if self.in_combat and combat_state:
             self.query_one("#stat-combat", Static).update("⚔ IN COMBAT")
@@ -169,9 +169,9 @@ class StatusPanel(Widget):
                 result_lines.append("  " + "  ".join(f"{k}={_esc(str(v))}" for k, v in details.items()))
             self.query_one("#stat-result", Static).update("\n".join(result_lines))
         else:
-            self.query_one("#stat-result", Static).update("—")
+            self.query_one("#stat-result", Static).update("-")
 
-        # Chronicle — compact feed of recent world events
+        # Chronicle - compact feed of recent world events
         self.query_one("#stat-chronicle", Static).update(
             _build_chronicle_display(s.recent_events, s.tick)
         )

@@ -34,6 +34,17 @@ logger = logging.getLogger(__name__)
 
 # ── JSON repair utility ──────────────────────────────────────────────────── #
 
+_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+
+def _extract_think_trace(text: str) -> str | None:
+    """Extract the content of <think>...</think> blocks before _repair_json strips them."""
+    if not text:
+        return None
+    m = _THINK_RE.search(text)
+    return m.group(1).strip() if m else None
+
+
 def _repair_json(text: str) -> dict[str, Any]:
     """
     Parse JSON from an LLM response, with progressive repair fallbacks.
@@ -125,7 +136,7 @@ def _repair_json(text: str) -> dict[str, Any]:
             except json.JSONDecodeError:
                 pass
 
-        # 6. Truncated JSON — try closing open braces
+        # 6. Truncated JSON - try closing open braces
         if brace_end == -1 and depth > 0:
             truncated = cleaned[brace_start:]
             # Remove any trailing partial string/key
@@ -199,7 +210,7 @@ class Agent:
             self._setup_payload_log(name, _dir) if _log else None
         )
 
-        # Prompts — explicit constructor args take priority, then config file
+        # Prompts - explicit constructor args take priority, then config file
         # paths, then built-in defaults.  The /no_think hint is appended to
         # system prompts at call time when thinking is disabled, so the stored
         # prompts are always the clean base text.
@@ -227,11 +238,11 @@ class Agent:
         # Hot-directive file path: directives_for_<name>.txt in cwd
         self._directive_file = Path(f"directives_for_{name}.txt")
 
-        # Recent failure ring buffer — persists across ticks so the LLM can
+        # Recent failure ring buffer - persists across ticks so the LLM can
         # see patterns like "craft entropy_blade failed 3 times in a row".
         self._recent_failures: list[dict] = []
 
-        # Action history ring buffer — tracks the agent's own actions for
+        # Action history ring buffer - tracks the agent's own actions for
         # prompt rendering (🔁 YOUR RECENT ACTIONS) and repetition detection.
         self._action_history: list[dict] = []
 
@@ -239,6 +250,10 @@ class Agent:
         # we store the blocked action here so the next tick's [LAST] line
         # reflects the real failure rather than "wait → success".
         self._pending_blocked_result: dict | None = None
+
+        # Last <think> trace from a reasoning model - captured before
+        # _repair_json strips it. Used for research divergence analysis.
+        self._last_think_trace: str | None = None
 
     # ── Public API ────────────────────────────────────────────────────────── #
 
@@ -250,7 +265,7 @@ class Agent:
         logger.info("Starting agent '%s'...", self.name)
         if self.config.enable_thinking:
             logger.info(
-                "Thinking mode ON — token budgets auto-scaled "
+                "Thinking mode ON - token budgets auto-scaled "
                 "(action %d→%d, reflection %d→%d, tactical %d→%d).",
                 self.config.max_tokens_action,     self._effective_max_tokens(self.config.max_tokens_action),
                 self.config.max_tokens_reflection,  self._effective_max_tokens(self.config.max_tokens_reflection),
@@ -315,7 +330,7 @@ class Agent:
             last_refl     = self.memory.get_knowledge("last_reflection_tick")     or 0
             last_tactical = self.memory.get_knowledge("last_tactical_review_tick") or 0
 
-        # Cognitive cycles run sequentially — most LLM endpoints serve one
+        # Cognitive cycles run sequentially - most LLM endpoints serve one
         # request at a time, so parallel requests just cause timeouts.
         if tick > last_refl + self.config.reflection_cooldown_ticks and not in_combat:
             await self._run_reflection(tick)
@@ -448,22 +463,22 @@ class Agent:
         # Find the schema for this action and validate required parameters
         schema = next((a for a in available if a["action"] == action_name), None)
 
-        # Block wasteful rest when context fatigue is low — resting is only
+        # Block wasteful rest when context fatigue is low - resting is only
         # valuable above ~50% where debuffs start to matter.  Below that the
         # tick is better spent gathering, crafting, or moving.
         if action_name == "rest":
             context_fatigue = state.get("context_fatigue", 0.0)
             if context_fatigue < 0.50:
                 logger.warning(
-                    "Blocked low-value rest — context fatigue is only %d%% (threshold 50%%).",
+                    "Blocked low-value rest - context fatigue is only %d%% (threshold 50%%).",
                     int(context_fatigue * 100),
                 )
                 return {
                     "action": "wait",
-                    "reasoning": f"Context fatigue is only {int(context_fatigue * 100)}% — not worth resting yet.",
+                    "reasoning": f"Context fatigue is only {int(context_fatigue * 100)}% - not worth resting yet.",
                 }
 
-        # Block accept_quest for quests that are already active — the server
+        # Block accept_quest for quests that are already active - the server
         # will reject these anyway, but catching it here saves a wasted tick.
         if action_name == "accept_quest":
             quest_id = action.get("parameters", {}).get("quest_id")
@@ -476,10 +491,10 @@ class Agent:
                 )
                 return {
                     "action": "wait",
-                    "reasoning": f"Quest '{quest_id}' is already active — need to pick a different action.",
+                    "reasoning": f"Quest '{quest_id}' is already active - need to pick a different action.",
                 }
 
-        # Block gather on invalid or unavailable nodes — the server will reject
+        # Block gather on invalid or unavailable nodes - the server will reject
         # these anyway, but catching it here saves a wasted tick.
         if action_name == "gather":
             node_id = action.get("parameters", {}).get("node_id")
@@ -489,13 +504,13 @@ class Agent:
                 valid_node_ids = {n.get("node_id") for n in nearby_nodes}
                 if node_id not in valid_node_ids:
                     logger.warning(
-                        "Blocked gather on unknown node '%s' — not in nearby_nodes. "
+                        "Blocked gather on unknown node '%s' - not in nearby_nodes. "
                         "LLM may have confused an NPC ID with a resource node.",
                         node_id,
                     )
                     return {
                         "action": "wait",
-                        "reasoning": f"Node '{node_id}' is not a valid resource node — need to pick a different action.",
+                        "reasoning": f"Node '{node_id}' is not a valid resource node - need to pick a different action.",
                     }
                 node = next((n for n in nearby_nodes if n.get("node_id") == node_id), None)
                 if node and not node.get("can_gather"):
@@ -510,7 +525,7 @@ class Agent:
                     logger.warning("Blocked gather on unavailable node '%s': %s", node_id, reason)
                     return {
                         "action": "wait",
-                        "reasoning": f"{reason} — need to pick a different action.",
+                        "reasoning": f"{reason} - need to pick a different action.",
                     }
 
         # Block list_auction when the agent doesn't have the item in inventory.
@@ -524,12 +539,12 @@ class Agent:
                 held = inventory.get(item_id, 0)
                 if held < quantity:
                     logger.warning(
-                        "Blocked list_auction for %dx %s — only have %d in inventory.",
+                        "Blocked list_auction for %dx %s - only have %d in inventory.",
                         quantity, item_id, held,
                     )
                     return {
                         "action": "wait",
-                        "reasoning": f"Cannot list {quantity}x {item_id} — only have {held} in inventory.",
+                        "reasoning": f"Cannot list {quantity}x {item_id} - only have {held} in inventory.",
                     }
 
         # Block bid_auction when all AH listings for the item are the agent's own.
@@ -549,16 +564,16 @@ class Agent:
                 # If all available quantity is from our own listings, bid will fail
                 if total_qty > 0 and my_item_qty >= total_qty:
                     logger.warning(
-                        "Blocked bid_auction for %s — all %d AH units are your own listings.",
+                        "Blocked bid_auction for %s - all %d AH units are your own listings.",
                         item_id, total_qty,
                     )
                     return {
                         "action": "wait",
-                        "reasoning": f"Cannot buy {item_id} — all {total_qty} units on AH are your own listings.",
+                        "reasoning": f"Cannot buy {item_id} - all {total_qty} units on AH are your own listings.",
                     }
 
         # Warn (but don't block) when LLM tries to craft something not in
-        # craftable_now — let the server reject it so the failure gets
+        # craftable_now - let the server reject it so the failure gets
         # recorded and the agent learns from the mistake.
         if action_name == "craft" and schema:
             params = action.get("parameters", {})
@@ -571,17 +586,17 @@ class Agent:
 
             if not chosen_item:
                 logger.warning(
-                    "LLM sent craft with no item_id (params: %s) — sending to server anyway.",
+                    "LLM sent craft with no item_id (params: %s) - sending to server anyway.",
                     params,
                 )
             elif not craftable_now:
                 logger.warning(
-                    "LLM trying to craft '%s' but nothing is craftable — sending to server anyway.",
+                    "LLM trying to craft '%s' but nothing is craftable - sending to server anyway.",
                     chosen_item,
                 )
             elif chosen_item not in craftable_now:
                 logger.warning(
-                    "LLM trying to craft '%s' but only %s are craftable — sending to server anyway.",
+                    "LLM trying to craft '%s' but only %s are craftable - sending to server anyway.",
                     chosen_item, craftable_now,
                 )
 
@@ -593,7 +608,7 @@ class Agent:
                 # Check against valid_values if the server provides them.
                 # valid_values may be a list of plain strings OR a list of dicts
                 # with an "id" key (e.g. nearby_agents).  The LLM may also pass
-                # the full object dict instead of just the id string — normalise both.
+                # the full object dict instead of just the id string - normalise both.
                 valid_values = param_def.get("valid_values", [])
                 if valid_values:
                     # Normalise valid_values to a flat set of string IDs and names
@@ -674,7 +689,10 @@ class Agent:
             equipped_weapon   = state.get("equipped_weapon"),
             alliance_id       = state.get("alliance_id"),
             total_wealth      = float(state.get("total_wealth", 0)),
+            internal_thought  = self._last_think_trace,
         )
+        # Clear after emission so it doesn't leak into the next tick
+        self._last_think_trace = None
         try:
             self._on_tick_summary_cb(summary)
         except Exception as exc:
@@ -687,7 +705,7 @@ class Agent:
         Return the system prompt with /no_think appended when thinking is off.
 
         When thinking is enabled, the model needs freedom to reason in its
-        <think> block — the /no_think tag would suppress that.  When thinking
+        <think> block - the /no_think tag would suppress that.  When thinking
         is disabled, the tag acts as a soft switch for Qwen3-family models
         and a general hint for others to keep responses terse.
         """
@@ -739,6 +757,10 @@ class Agent:
                 )
 
                 self._log_payload("RESPONSE/action", {"response": response_text}, tick)
+
+                # Extract <think> trace before _repair_json strips it.
+                # Stashed on the agent instance for TickSummary emission.
+                self._last_think_trace = _extract_think_trace(response_text)
 
                 action = _repair_json(response_text)
                 return action
@@ -996,7 +1018,7 @@ class Agent:
             for t in sorted(reachable, key=lambda x: reachable[x]):
                 tc_lines.append(f"  {t} ({reachable[t]} power)")
             if unreachable:
-                tc_lines.append(f"Unreachable ({len(unreachable)} — not enough power):")
+                tc_lines.append(f"Unreachable ({len(unreachable)} - not enough power):")
                 for t in sorted(unreachable, key=lambda x: unreachable[x]):
                     tc_lines.append(f"  {t} ({unreachable[t]} power)")
             status_section += "\n" + "\n".join(tc_lines)
@@ -1006,7 +1028,7 @@ class Agent:
             failure_lines = ["Recent Failures (do NOT recreate goals for these):"]
             for fail in self._recent_failures[-5:]:
                 detail = f" ({fail['details']})" if fail.get('details') else ""
-                failure_lines.append(f"  tick {fail['tick']}: {fail['action']} → {fail['status']} — {fail['summary']}{detail}")
+                failure_lines.append(f"  tick {fail['tick']}: {fail['action']} → {fail['status']} - {fail['summary']}{detail}")
             status_section += "\n" + "\n".join(failure_lines)
 
         status_section += f"\n\nMemory Context:\n{memory_section}"
@@ -1135,9 +1157,9 @@ class Agent:
             f"Power    : {state.get('power', 0)}/{state.get('max_power', 70)}  "
             f"Credits  : {credits:.0f}cr  Level: {level}  Faction: {faction}",
             f"Context  : {int(context * 100)}%"
-            + (" ✓ clear — no need to rest" if context < 0.25 else
-               " ⚠ HIGH — rest soon!" if context >= 0.75 else
-               " — manageable, keep working" if context < 0.50 else "")
+            + (" ✓ clear - no need to rest" if context < 0.25 else
+               " ⚠ HIGH - rest soon!" if context >= 0.75 else
+               " - manageable, keep working" if context < 0.50 else "")
             + (f"  Banked XP: {banked_xp}" if banked_xp else ""),
             f"Weapon   : {weapon_str}",
             f"Armor    : armor={armor_body}  utility={armor_util}",
@@ -1147,7 +1169,7 @@ class Agent:
             f"Crafting : {c_str}",
         ]
 
-        # Meta directive — persistent high-level goal from config
+        # Meta directive - persistent high-level goal from config
         if self.config.meta_directive:
             lines.append(f"\n🏆 META GOAL: {self.config.meta_directive}")
 
@@ -1213,7 +1235,7 @@ class Agent:
                             for r in known_recipes
                         )
                         if not can_craft and target_item:
-                            infeasible_tag = " ⛔ CANNOT CRAFT (skill too low or no recipe) — consider abandoning"
+                            infeasible_tag = " ⛔ CANNOT CRAFT (skill too low or no recipe) - consider abandoning"
                     incomplete_objectives.append(
                         f"  ⚠ [{cur}/{req}] {desc}{target_hint}  (quest: {title}){infeasible_tag}"
                     )
@@ -1264,7 +1286,7 @@ class Agent:
             rep_str = " ".join(f"{k}={v}" for k, v in faction_rep.items())
             lines.append(f"  Reputation: {rep_str}")
 
-        # Known recipes & crafting — show item names only, no recipe IDs
+        # Known recipes & crafting - show item names only, no recipe IDs
         known_recipes = state.get("known_recipes", [])
         craft_action = next(
             (a for a in avail_actions if a.get("action") == "craft"), None
@@ -1287,7 +1309,7 @@ class Agent:
                     qty = r.get('result', {}).get('qty', 1)
                     q = f"×{qty}" if qty > 1 else ""
                     ingr = ", ".join(f"{i['qty']}x {i['item']}" for i in r.get("ingredients", []))
-                    lines.append(f"  ⚡ {item}{q} — needs: {ingr}")
+                    lines.append(f"  ⚡ {item}{q} - needs: {ingr}")
 
             if notready:
                 lines.append("\n🔧 RECIPES (not ready):")
@@ -1298,7 +1320,7 @@ class Agent:
                     skill_ok = r.get("your_skill", 0) >= r.get("required_skill", 999)
                     if not skill_ok:
                         lines.append(
-                            f"  ✗ {item}{q} — need {r['track']} Lv{r['required_skill']}"
+                            f"  ✗ {item}{q} - need {r['track']} Lv{r['required_skill']}"
                             f" (have Lv{r.get('your_skill', 1)})"
                         )
                         continue
@@ -1309,7 +1331,7 @@ class Agent:
                             src = i.get("source", "")
                             src_hint = f" ({src})" if src else ""
                             missing.append(f"{need - have}x {i['item']}{src_hint}")
-                    lines.append(f"  ✗ {item}{q} — missing: {', '.join(missing)}")
+                    lines.append(f"  ✗ {item}{q} - missing: {', '.join(missing)}")
 
             if not ready:
                 lines.append("  ⚡ Nothing craftable right now.")
@@ -1333,7 +1355,7 @@ class Agent:
                     f"{obj_str}"
                 )
 
-        # Available quests (brief) — filter out quests already accepted so
+        # Available quests (brief) - filter out quests already accepted so
         # the LLM doesn't try to re-accept them.
         active_quest_ids = {q.get("quest_id") for q in active_quests}
         avail_quests = [
@@ -1359,7 +1381,7 @@ class Agent:
                 inactive_tag = " [OFFLINE]" if b.get("target_inactive") else ""
                 lines.append(
                     f"  {b.get('target_name', '?')} ({b.get('target_faction', '?')}) "
-                    f"@ {b.get('last_known_territory', '?')} — {b.get('reward_credits', 0):.0f}cr{inactive_tag}"
+                    f"@ {b.get('last_known_territory', '?')} - {b.get('reward_credits', 0):.0f}cr{inactive_tag}"
                 )
 
         # Apex processes (world bosses)
@@ -1423,7 +1445,7 @@ class Agent:
             lines.append("\n⛔ RECENT FAILURES (do NOT repeat these):")
             for fail in self._recent_failures[-5:]:
                 detail = f" ({fail['details']})" if fail.get('details') else ""
-                lines.append(f"  tick {fail['tick']}: {fail['action']} → {fail['status']} — {fail['summary']}{detail}")
+                lines.append(f"  tick {fail['tick']}: {fail['action']} → {fail['status']} - {fail['summary']}{detail}")
 
         if warnings:
             lines.append("\n⚠ WARNINGS:\n" + "\n".join(f"  - {w}" for w in warnings))
@@ -1472,7 +1494,7 @@ class Agent:
                     if cd > 0 and skill_ok:
                         lines.append(
                             f"  ✗ {n['node_id']} [{n['resource']}] ON COOLDOWN"
-                            f" — {cd} ticks remaining"
+                            f" - {cd} ticks remaining"
                         )
                     else:
                         lines.append(
@@ -1575,7 +1597,7 @@ class Agent:
                     lines.append(
                         f"  {ht.get('relation', '?')} {ht['name']} lv{ht['level']} "
                         f"({ht['faction']}) @ {ht.get('territory', '?')} "
-                        f"— {ht['threat_level']}: {ht.get('threat_reason', '')}{bounty_tag}"
+                        f"- {ht['threat_level']}: {ht.get('threat_reason', '')}{bounty_tag}"
                     )
 
             # PvP feed
@@ -1609,7 +1631,7 @@ class Agent:
                 if raw_valid:
                     filtered = [q for q in raw_valid if q not in active_quest_ids]
                     if not filtered:
-                        lines.append(f"  accept_quest — no new quests available (all already active)")
+                        lines.append(f"  accept_quest - no new quests available (all already active)")
                         continue
                     # Use filtered list for display
                     params = dict(params)
@@ -1649,19 +1671,19 @@ class Agent:
             elif aname == "craft":
                 cn = params.get("item_id", {}).get("craftable_now", [])
                 if cn:
-                    lines.append(f"  craft(item_id) — craftable now: {', '.join(cn)}")
+                    lines.append(f"  craft(item_id) - craftable now: {', '.join(cn)}")
                 else:
-                    # Don't list craft at all when nothing is craftable —
+                    # Don't list craft at all when nothing is craftable -
                     # the LLM will try to guess item names if it sees the action.
-                    lines.append("  craft — ⛔ BLOCKED: nothing craftable (missing ingredients or skill too low)")
+                    lines.append("  craft - ⛔ BLOCKED: nothing craftable (missing ingredients or skill too low)")
             elif aname == "accept_quest":
                 qid_param = params.get("quest_id", {})
                 valid = qid_param.get("valid_values", [])
                 if valid:
-                    lines.append(f"  accept_quest(quest_id) — ONLY these quest_ids are valid: {valid[:8]}"
+                    lines.append(f"  accept_quest(quest_id) - ONLY these quest_ids are valid: {valid[:8]}"
                                  f"{'...' if len(valid) > 8 else ''}")
                 else:
-                    lines.append(f"  accept_quest — ⛔ no quests available to accept")
+                    lines.append(f"  accept_quest - ⛔ no quests available to accept")
             elif params:
                 hints = [
                     f"{pn}: {pd.get('valid_values', [])[:8]}"
@@ -1703,7 +1725,7 @@ class Agent:
             truncated = body[:8000] + ("\n... (truncated)" if len(body) > 8000 else "")
             self._payload_log.debug("[tick=%s] [%s]\n%s\n%s", tick, direction, truncated, "─" * 80)
 
-        # TUI-visible payload at VERBOSE level (5) — full, untruncated.
+        # TUI-visible payload at VERBOSE level (5) - full, untruncated.
         # The @@PAYLOAD@@ prefix tells LogView to render a collapsible block.
         logger.log(5, "@@PAYLOAD@@%s (tick %s)\n%s", direction, tick, body)
 

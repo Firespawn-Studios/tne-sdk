@@ -4,7 +4,7 @@ TNE-SDK Launcher: Log View Widget
 MMO-style scrolling combat/activity log with visually distinct entry types.
 
 Each log record is classified into a category and rendered with unique
-styling — icons, colors, borders, and spacing — so the feed reads like
+styling - icons, colors, borders, and spacing - so the feed reads like
 a game chronicle rather than a diagnostic dump.
 
 Categories:
@@ -52,7 +52,7 @@ _CATEGORY_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("result_success",   re.compile(r"^Result \(tick \d+\):.*✓", re.I)),
     ("result_partial",   re.compile(r"^Result \(tick \d+\):.*~", re.I)),
     ("result_fail",      re.compile(r"^Result \(tick \d+\):.*✗", re.I)),
-    # Chronicle events — matched before generic action/queued patterns
+    # Chronicle events - matched before generic action/queued patterns
     ("chronicle_damage",    re.compile(r"^Chronicle \[DAMAGE\]", re.I)),
     ("chronicle_attack",    re.compile(r"^Chronicle \[ATTACK\]", re.I)),
     ("chronicle_flee",      re.compile(r"^Chronicle \[FLEE\b", re.I)),
@@ -86,7 +86,7 @@ _CATEGORY_PATTERNS: list[tuple[str, re.Pattern]] = [
 # ── Category → visual config ────────────────────────────────────────────── #
 
 _CATEGORY_CONFIG: dict[str, dict] = {
-    # Actions — the agent's decisions
+    # Actions - the agent's decisions
     "action": {
         "icon": "⚔",
         "css": "log-action",
@@ -425,7 +425,7 @@ def _format_entry(category: str, ts: str, msg: str) -> str:
     elif category.startswith("chronicle_"):
         body = _format_chronicle(msg)
     elif category in ("reflection_start", "reflection_end", "tactical_start", "tactical_end"):
-        # These are section headers — keep them short and punchy
+        # These are section headers - keep them short and punchy
         body = msg.replace("===", "").replace("---", "").strip()
     elif category == "queued":
         # "Server confirmed: move queued for tick 12984" → compact

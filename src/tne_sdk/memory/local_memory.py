@@ -470,7 +470,7 @@ class LocalMemory(MemoryProvider):
         if self._conn is None:
             return
         if self._depth > 0:
-            logger.warning("vacuum() called inside a transaction — skipping.")
+            logger.warning("vacuum() called inside a transaction - skipping.")
             return
         try:
             self._conn.execute("VACUUM")

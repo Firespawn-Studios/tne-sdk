@@ -42,3 +42,6 @@ class TickSummary:
     equipped_weapon:   str | None   = None
     alliance_id:       str | None   = None
     total_wealth:      float        = 0.0
+    # Internal reasoning trace from <think> blocks (for reasoning models only).
+    # Captured before _repair_json strips it. None for non-reasoning models.
+    internal_thought:  str | None   = None

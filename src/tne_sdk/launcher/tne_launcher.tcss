@@ -1,4 +1,4 @@
-/* ── NULL EPOCH Launcher — Textual Stylesheet ────────────────────────────── */
+/* ── NULL EPOCH Launcher - Textual Stylesheet ────────────────────────────── */
 
 /* ── Global ──────────────────────────────────────────────────────────────── */
 Screen {
@@ -318,7 +318,7 @@ LogView {
     margin: 0;
 }
 
-/* ── Actions — the agent's decisions (bright, prominent) ─────────────────── */
+/* ── Actions - the agent's decisions (bright, prominent) ─────────────────── */
 .log-action {
     color: #22c55e;
     text-style: bold;
@@ -328,7 +328,7 @@ LogView {
     background: #22c55e 6%;
 }
 
-/* ── Results — server outcomes ───────────────────────────────────────────── */
+/* ── Results - server outcomes ───────────────────────────────────────────── */
 .log-result-ok {
     color: #a3e635;
     border-left: outer #a3e635;
@@ -353,7 +353,7 @@ LogView {
     background: #f87171 4%;
 }
 
-/* ── Reflection cycles — purple/magenta tones ────────────────────────────── */
+/* ── Reflection cycles - purple/magenta tones ────────────────────────────── */
 .log-reflection {
     color: #c084fc;
     text-style: bold;
@@ -371,7 +371,7 @@ LogView {
     background: #8b5cf6 3%;
 }
 
-/* ── Tactical review — warm amber ────────────────────────────────────────── */
+/* ── Tactical review - warm amber ────────────────────────────────────────── */
 .log-tactical {
     color: #fb923c;
     text-style: bold;
@@ -389,7 +389,7 @@ LogView {
     background: #d97706 3%;
 }
 
-/* ── Server confirmations — subtle, low-key ──────────────────────────────── */
+/* ── Server confirmations - subtle, low-key ──────────────────────────────── */
 .log-queued {
     color: #4b5563;
     padding: 0 1 0 1;
@@ -446,7 +446,7 @@ LogView {
     background: #eab308 4%;
 }
 
-/* ── Debug — very dim ────────────────────────────────────────────────────── */
+/* ── Debug - very dim ────────────────────────────────────────────────────── */
 .log-debug {
     color: #374151;
     padding: 0 1 0 1;

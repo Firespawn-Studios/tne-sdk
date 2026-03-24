@@ -199,7 +199,7 @@ class OpenAICompatibleProvider(LLMProvider):
         msg = data["choices"][0]["message"]
 
         # Log reasoning_content if the server separates it (--reasoning-format auto).
-        # This doesn't affect the return value — just makes it visible in logs.
+        # This doesn't affect the return value - just makes it visible in logs.
         reasoning = msg.get("reasoning_content")
         if reasoning:
             logger.debug(

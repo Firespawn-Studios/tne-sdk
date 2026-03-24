@@ -1,7 +1,7 @@
 """
 TNE-SDK: AWS Bedrock LLM Provider
 
-Uses the Bedrock Converse API — a unified interface that works across all
+Uses the Bedrock Converse API - a unified interface that works across all
 Bedrock-hosted models (Anthropic, Meta, Mistral, Cohere, Amazon Nova,
 Google Gemma, Qwen, Nvidia, etc.) without per-model request/response
 schema handling.
@@ -14,7 +14,7 @@ Authentication uses the standard boto3 credential chain:
   3. Shared credentials file (~/.aws/credentials)
   4. IAM role (EC2 instance profile, ECS task role, Lambda execution role)
 
-For most server deployments, IAM roles are recommended — no keys to manage.
+For most server deployments, IAM roles are recommended - no keys to manage.
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ class BedrockProvider(LLMProvider):
         self.model_id = model_id
         self.default_max_tokens = default_max_tokens
 
-        # Build client kwargs — only include credentials if explicitly provided.
+        # Build client kwargs - only include credentials if explicitly provided.
         # Otherwise boto3 uses its standard credential chain (env vars, IAM role, etc.)
         client_kwargs: dict[str, Any] = {"region_name": region}
         if access_key and secret_key:
@@ -160,7 +160,7 @@ class BedrockProvider(LLMProvider):
         )
         if reasoning_text:
             logger.warning(
-                "Bedrock returned reasoning-only response for %s — "
+                "Bedrock returned reasoning-only response for %s - "
                 "max_tokens may be too low for thinking + output.",
                 model_to_use,
             )

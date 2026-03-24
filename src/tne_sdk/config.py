@@ -28,13 +28,13 @@ class AgentConfig:
     reflection_cooldown_ticks:      int   = DEFAULT_REFLECTION_COOLDOWN
     tactical_review_cooldown_ticks: int   = DEFAULT_TACTICAL_COOLDOWN
 
-    # ── LLM sampling — standard (action turns, and all calls when thinking is off) ── #
+    # ── LLM sampling - standard (action turns, and all calls when thinking is off) ── #
     temperature:       float = 0.7
     top_p:             float = 0.8
     top_k:             int   = 20
     presence_penalty:  float = 1.5
 
-    # ── LLM sampling — thinking mode (reflection + tactical when thinking is on) ── #
+    # ── LLM sampling - thinking mode (reflection + tactical when thinking is on) ── #
     thinking_temperature:       float = 1.0
     thinking_top_p:             float = 0.95
     thinking_presence_penalty:  float = 1.5
@@ -91,13 +91,13 @@ class AgentConfig:
         """Build an AgentConfig from a profile dict (agents.json schema)."""
         cfg = cls()
 
-        # Sampling — standard
+        # Sampling - standard
         if (v := d.get("temperature"))      is not None: cfg.temperature      = float(v)
         if (v := d.get("top_p"))             is not None: cfg.top_p            = float(v)
         if (v := d.get("top_k"))             is not None: cfg.top_k            = int(v)
         if (v := d.get("presence_penalty"))  is not None: cfg.presence_penalty = float(v)
 
-        # Sampling — thinking mode overrides
+        # Sampling - thinking mode overrides
         if (v := d.get("thinking_temperature"))      is not None: cfg.thinking_temperature      = float(v)
         if (v := d.get("thinking_top_p"))             is not None: cfg.thinking_top_p             = float(v)
         if (v := d.get("thinking_presence_penalty"))  is not None: cfg.thinking_presence_penalty  = float(v)

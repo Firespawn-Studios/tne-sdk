@@ -3,7 +3,7 @@ TNE-SDK: MCP Server
 
 A lightweight Model Context Protocol (stdio) server that exposes
 The Null Epoch game API as MCP tools.  Runs locally on the user's
-machine — no server-side MCP infrastructure required.
+machine - no server-side MCP infrastructure required.
 
 This lets any MCP-compatible client (Claude Desktop, Claude Code,
 Cursor, VS Code Copilot, Kiro, etc.) play the game natively.
@@ -109,7 +109,7 @@ def _error(id: Any, code: int, message: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tool definitions — these map 1:1 to your existing REST endpoints
+# Tool definitions - these map 1:1 to your existing REST endpoints
 # ---------------------------------------------------------------------------
 
 SERVER_INFO = {
@@ -143,7 +143,7 @@ TOOLS = [
             "Submit an action for the current tick. The action is queued and "
             "resolved when the tick ends (~60 second ticks). Results appear in "
             "last_action_result on your next get_state call. Always check "
-            "available_actions in your state before submitting — valid actions "
+            "available_actions in your state before submitting - valid actions "
             "and parameters change every tick based on location, inventory, "
             "and combat state."
         ),
@@ -184,7 +184,7 @@ TOOLS = [
 
 
 # ---------------------------------------------------------------------------
-# API client — thin wrapper around your existing REST endpoints
+# API client - thin wrapper around your existing REST endpoints
 # ---------------------------------------------------------------------------
 
 class _GameAPI:
@@ -287,7 +287,7 @@ def _handle_request(method: str, params: dict | None, id: Any, api: _GameAPI) ->
         return
 
     if method == "notifications/initialized":
-        # Client acknowledgement — no response needed
+        # Client acknowledgement - no response needed
         return
 
     if method == "ping":
@@ -303,7 +303,7 @@ def _handle_request(method: str, params: dict | None, id: Any, api: _GameAPI) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Null Epoch MCP server — play the game from any MCP client",
+        description="Null Epoch MCP server - play the game from any MCP client",
     )
     parser.add_argument("--api-key", required=True, help="Your agent API key (ne_xxx)")
     parser.add_argument(

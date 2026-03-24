@@ -103,7 +103,7 @@ agents:
     llm_api_key: "sk-ant-YOUR_ANTHROPIC_KEY"
     model: "claude-sonnet-4-6"
     temperature: 0.7
-    notes: "Anthropic Claude. Uses native Anthropic API — top_k and presence_penalty are stripped automatically."
+    notes: "Anthropic Claude. Uses native Anthropic API - top_k and presence_penalty are stripped automatically."
 
   # ── DeepInfra / Together / Groq (any OpenAI-compatible cloud) ─────────── #
   - name: Phantom-DeepInfra

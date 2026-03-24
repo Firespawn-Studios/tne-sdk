@@ -278,10 +278,10 @@ class ManageAgentsScreen(Screen):
         for p in self._store.profiles:
             name = p.get("name", "?")
             db   = self._log_dir / f"agent_memory_{name}.db"
-            mem  = f"✓ {db.stat().st_size / 1024:.0f} KB" if db.exists() else "—"
-            url  = p.get("llm_url", "—")
+            mem  = f"✓ {db.stat().st_size / 1024:.0f} KB" if db.exists() else "-"
+            url  = p.get("llm_url", "-")
             url_s = url[:28] + "..." if len(url) > 29 else url
-            table.add_row(name, p.get("model", "—"), url_s, mem)
+            table.add_row(name, p.get("model", "-"), url_s, mem)
 
     def _selected_profile(self) -> dict | None:
         table: DataTable = self.query_one("#manage-list", DataTable)

@@ -81,10 +81,10 @@ class MainMenuScreen(Screen):
         table.add_columns("#", "Name", "Model", "Game Host", "Memory", "Notes")
         for i, profile in enumerate(self._store.profiles, 1):
             name   = profile.get("name", "?")
-            model  = profile.get("model", "—")
+            model  = profile.get("model", "-")
             g_host = profile.get("game_host", LIVE_GAME_HOST)
             db     = self._log_dir / f"agent_memory_{name}.db"
-            mem    = f"✓ {db.stat().st_size / 1024:.0f} KB" if db.exists() else "—"
+            mem    = f"✓ {db.stat().st_size / 1024:.0f} KB" if db.exists() else "-"
             notes  = profile.get("notes", "")[:35]
             table.add_row(str(i), name, model, g_host, mem, notes)
 

@@ -135,5 +135,5 @@ class MemoryProvider(ABC):
         ...
 
     def vacuum(self) -> None:
-        """Reclaim space in the backing store.  Optional — default is a no-op."""
+        """Reclaim space in the backing store.  Optional - default is a no-op."""
         pass

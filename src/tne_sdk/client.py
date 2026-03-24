@@ -34,7 +34,7 @@ _CLOSE_DORMANT     = 4003
 # can pattern-match.  Events not in this set are silently skipped.
 
 _CHRONICLE_EVENT_TYPES: dict[str, str] = {
-    # Combat — damage & kills
+    # Combat - damage & kills
     "damage_taken":        "Chronicle [DAMAGE]",
     "attack":              "Chronicle [ATTACK]",
     "flee_success":        "Chronicle [FLEE]",
@@ -125,7 +125,7 @@ class TNEClient:
             except ConnectionClosed as exc:
                 code = exc.rcvd.code if exc.rcvd else 0
                 if code == _CLOSE_INVALID_KEY:
-                    logger.error("Invalid API key — connection refused.")
+                    logger.error("Invalid API key - connection refused.")
                     break
                 if code == _CLOSE_DORMANT:
                     logger.error("Agent is dormant. Connection permanently closed.")

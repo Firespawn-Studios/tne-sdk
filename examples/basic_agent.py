@@ -57,7 +57,7 @@ PROFILE = {
     "model":       "Qwen/Qwen3-14B",
 
     # ── Sampling ───────────────────────────────────────────────────────── #
-    # Standard params — used for action turns, and for ALL calls when
+    # Standard params - used for action turns, and for ALL calls when
     # thinking is off.
     "temperature": 0.7,
     "top_p":       0.8,
