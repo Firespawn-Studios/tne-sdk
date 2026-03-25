@@ -68,9 +68,18 @@ class AgentConfig:
     # Max characters of event JSON fed into a reflection prompt
     reflection_max_chars: int = REFLECTION_MAX_CHARS
 
-    # ── Custom prompt file paths ──────────────────────────────────────────── #
+    # ── Custom prompts (inline text) ─────────────────────────────────────── #
+    # Paste prompt text directly.  Takes priority over file paths below.
+    system_prompt_text:            str = ""
+    reflection_system_prompt_text: str = ""
+    reflection_user_prompt_text:   str = ""
+    tactical_system_prompt_text:   str = ""
+    tactical_user_prompt_text:     str = ""
+
+    # ── Custom prompt file paths (legacy / power-user) ────────────────────── #
     # Point these at .txt files to override the built-in prompts.
-    # Paths are resolved relative to cwd.  Leave empty to use defaults.
+    # Paths are resolved as absolute or relative to cwd.  Leave empty to use defaults.
+    # Inline text above takes priority over file paths.
     system_prompt_file:            str = ""
     reflection_system_prompt_file: str = ""
     reflection_user_prompt_file:   str = ""
@@ -120,7 +129,14 @@ class AgentConfig:
         if (v := d.get("tactical_review_cooldown_ticks")) is not None:
             cfg.tactical_review_cooldown_ticks = int(v)
 
-        # Custom prompt files
+        # Custom prompt inline text (preferred)
+        if (v := d.get("system_prompt_text"))            is not None: cfg.system_prompt_text            = str(v)
+        if (v := d.get("reflection_system_prompt_text")) is not None: cfg.reflection_system_prompt_text = str(v)
+        if (v := d.get("reflection_user_prompt_text"))   is not None: cfg.reflection_user_prompt_text   = str(v)
+        if (v := d.get("tactical_system_prompt_text"))   is not None: cfg.tactical_system_prompt_text   = str(v)
+        if (v := d.get("tactical_user_prompt_text"))     is not None: cfg.tactical_user_prompt_text     = str(v)
+
+        # Custom prompt file paths (legacy fallback)
         if (v := d.get("system_prompt_file"))            is not None: cfg.system_prompt_file            = str(v)
         if (v := d.get("reflection_system_prompt_file")) is not None: cfg.reflection_system_prompt_file = str(v)
         if (v := d.get("reflection_user_prompt_file"))   is not None: cfg.reflection_user_prompt_file   = str(v)
@@ -142,21 +158,37 @@ class AgentConfig:
 
     def load_prompt(self, field_name: str, default: str) -> str:
         """
-        Return the contents of the prompt file pointed to by *field_name*,
-        or *default* if the field is empty or the file doesn't exist.
+        Return the custom prompt for *field_name*, or *default* if none is set.
+
+        Resolution order:
+          1. Inline text  (``<base>_text`` field, e.g. ``system_prompt_text``)
+          2. File path    (``<base>_file`` field, e.g. ``system_prompt_file``)
+          3. Built-in default
+
+        File paths support ``~`` expansion and work as absolute or relative
+        to the current working directory.
         """
+        # 1. Inline text - field_name is "system_prompt_file"
+        # we derive the text field by replacing the trailing "_file" with "_text".
+        text_field = field_name.removesuffix("_file") + "_text"
+        inline = getattr(self, text_field, "")
+        if inline and inline.strip():
+            return inline
+
+        # 2. File path
         path_str = getattr(self, field_name, "")
-        if not path_str:
-            return default
-        p = Path(path_str)
-        if not p.is_file():
-            return default
-        return p.read_text(encoding="utf-8")
+        if path_str:
+            p = Path(path_str).expanduser()
+            if p.is_file():
+                return p.read_text(encoding="utf-8")
+
+        # 3. Default
+        return default
 
     # ── Validation ────────────────────────────────────────────────────────── #
 
     def _validate(self) -> None:
-        """Reject obviously wrong values so misconfigurations fail early."""
+        """Reject obviously wrong values so misconfigurations can fail early."""
         if not (0.0 <= self.temperature <= 2.0):
             raise ValueError(f"temperature must be 0.0–2.0, got {self.temperature}")
         if not (0.0 < self.top_p <= 1.0):

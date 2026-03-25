@@ -1200,11 +1200,13 @@ class Agent:
                         if parent:
                             lines.append(f"  Parent: {parent['description']} [pri={parent['priority']}]")
                     prefix = "    ↳" if pid else "  "
-                    lines.append(f"{prefix} [{t['priority']:3d}] {t['description'][:120]}  ({t['status']})")
+                    pri = t['priority'] if isinstance(t['priority'], int) else 0
+                    lines.append(f"{prefix} [{pri:3d}] {t['description'][:120]}  ({t['status']})")
                     displayed.add(t["task_id"])
                     for child in tree.get(t["task_id"], []):
                         if child["task_id"] not in displayed:
-                            lines.append(f"    ↳ [{child['priority']:3d}] {child['description'][:120]}  ({child['status']})")
+                            cpri = child['priority'] if isinstance(child['priority'], int) else 0
+                            lines.append(f"    ↳ [{cpri:3d}] {child['description'][:120]}  ({child['status']})")
                             displayed.add(child["task_id"])
 
             # ── Incomplete quest objectives (high-visibility) ──────────────

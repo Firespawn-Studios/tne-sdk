@@ -272,8 +272,9 @@ First-run flow:
    - **LLM API key** - cloud provider key, or blank for local
    - **Model name** - exact string your endpoint expects
 4. Scroll down to tune sampling, thinking mode, token budgets, cognitive
-   cycle timing, or custom prompt file paths. All fields have sensible
-   defaults - you can skip them on first setup.
+   cycle timing, or custom prompts. All fields have sensible
+   defaults and the custom prompt editors accept paste-in text. You can skip
+   them on first setup.
 5. **Ctrl+S** to save → **Esc** to go back → arrow to your agent → **R** to run.
 
 The dashboard updates every tick. Press **Ctrl+D** to inject a directive
@@ -605,7 +606,7 @@ role). Install the optional dependency: `pip install "tne-sdk[bedrock]"`.
 ### Override prompts
 
 The SDK ships with built-in prompts for action, reflection, and tactical 
-review. You can override any of them in three ways (highest priority first):
+review. You can override any of them in four ways (highest priority first):
 
 **1. Constructor args** (Python scripts):
 
@@ -620,19 +621,30 @@ agent = Agent(
 )
 ```
 
-**2. Prompt files** (profile / TUI - no code changes needed):
+**2. Inline text in profile** (TUI / agents.json):
 
-Point a profile field at a `.txt` file. Paths are resolved relative to your 
-working directory. Works from both `agents.json` and the TUI form.
+Paste your prompt text directly into the profile. The TUI Edit Agent screen
+has TextArea editors for each prompt. In `agents.json`, use the `*_text` keys:
+
+```json
+{
+  "name": "Spectre-7",
+  "system_prompt_text": "You are a cautious trader agent in NULL EPOCH...",
+  "tactical_system_prompt_text": "You are a Tactical Analyst. Prune stale goals."
+}
+```
+
+**3. Prompt files** (legacy / power-user / system agents):
+
+Point a profile field at a `.txt` file. Paths support `~` expansion and work
+as absolute or relative to your working directory. Inline text (option 2)
+takes priority over file paths if both are set.
 
 ```json
 {
   "name": "Spectre-7",
   "system_prompt_file": "prompts/action_system.txt",
-  "reflection_system_prompt_file": "prompts/reflection_system.txt",
-  "reflection_user_prompt_file": "prompts/reflection_user.txt",
-  "tactical_system_prompt_file": "prompts/tactical_system.txt",
-  "tactical_user_prompt_file": "prompts/tactical_user.txt"
+  "reflection_system_prompt_file": "prompts/reflection_system.txt"
 }
 ```
 
@@ -640,10 +652,26 @@ If a file path is set but the file doesn't exist, the built-in default is used
 silently. This lets you version-control prompt files alongside your agent 
 config without breaking anything if a file is missing. 
 
-**3. Built-in defaults** (no config needed):
+**4. Built-in defaults** (no config needed):
 
 The defaults live in `src/tne_sdk/prompts.py`. They're tuned for general-purpose 
 play and work well out of the box.
+
+**Important: user prompt placeholders**
+
+The reflection and tactical *user* prompts are templates that get filled with
+game data at runtime via Python's `.format()`. If you write a custom user
+prompt, you must include these placeholders or the agent will crash or produce
+broken output:
+
+| Prompt | Required placeholders |
+|---|---|
+| `reflection_user_prompt` | `{knowledge_section}`, `{hypotheses_section}`, `{event_data}` |
+| `tactical_user_prompt` | `{status_section}`, `{tasks_section}`, `{events_section}` |
+
+The system prompts (action, reflection, tactical) are plain text with no
+placeholders required. The TUI validates this on save and will block you from
+saving a user prompt that's missing required placeholders.
 
 ### Pass arbitrary LLM params
 
@@ -771,14 +799,21 @@ Thinking mode is controlled two ways:
 
 | Field | Default | Description |
 |---|---|---|
-| `system_prompt_file` | `""` | Path to a `.txt` file overriding the action system prompt. |
+| `system_prompt_text` | `""` | Inline text overriding the action system prompt. |
+| `reflection_system_prompt_text` | `""` | Inline text overriding the reflection system prompt. |
+| `reflection_user_prompt_text` | `""` | Inline text overriding the reflection user prompt template. Must contain `{knowledge_section}`, `{hypotheses_section}`, `{event_data}`. |
+| `tactical_system_prompt_text` | `""` | Inline text overriding the tactical system prompt. |
+| `tactical_user_prompt_text` | `""` | Inline text overriding the tactical user prompt template. Must contain `{status_section}`, `{tasks_section}`, `{events_section}`. |
+| `system_prompt_file` | `""` | Path to a `.txt` file overriding the action system prompt. Inline text takes priority. |
 | `reflection_system_prompt_file` | `""` | Path overriding the reflection system prompt. |
 | `reflection_user_prompt_file` | `""` | Path overriding the reflection user prompt template. |
 | `tactical_system_prompt_file` | `""` | Path overriding the tactical review system prompt. |
 | `tactical_user_prompt_file` | `""` | Path overriding the tactical review user prompt template. |
 
-Paths are resolved relative to the working directory. If the file doesn't
-exist, the built-in default is used.
+Inline text (`*_text`) takes priority over file paths (`*_file`). File paths
+support `~` expansion and work as absolute or relative to the working
+directory. If a file path is set but the file doesn't exist, the built-in
+default is used. Leave all fields empty to use the built-in defaults.
 
 ### Misc
 
@@ -819,8 +854,8 @@ cfg = AgentConfig(
     # Cycle timing
     reflection_cooldown_ticks=200, tactical_review_cooldown_ticks=10,
 
-    # Custom prompt files (paths relative to cwd)
-    system_prompt_file="prompts/action_system.txt",
+    # Custom prompt inline text (or use *_file for file paths)
+    system_prompt_text="You are a cautious trader agent in NULL EPOCH...",
 
     # Arbitrary extra params merged into every LLM request body
     default_llm_kwargs={"repetition_penalty": 1.1},

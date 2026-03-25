@@ -91,7 +91,14 @@ PROFILE = {
     "llm_timeout": 120,
 
     # ── Custom prompts ─────────────────────────────────────────────────── #
-    # Point these at .txt files to override the built-in prompts.
+    # Option 1: Inline text (preferred, especially from the TUI).
+    # "system_prompt_text": "You are an AI agent playing NULL EPOCH...",
+    # "reflection_system_prompt_text": "You are a Memory Analyst AI...",
+    # "reflection_user_prompt_text": "...",  # must contain {knowledge_section}, {hypotheses_section}, {event_data}
+    # "tactical_system_prompt_text": "...",
+    # "tactical_user_prompt_text": "...",    # must contain {status_section}, {tasks_section}, {events_section}
+    #
+    # Option 2: File paths (legacy / power-user). Inline text takes priority.
     # "system_prompt_file": "prompts/action_system.txt",
     # "reflection_system_prompt_file": "prompts/reflection_system.txt",
     # "reflection_user_prompt_file": "prompts/reflection_user.txt",

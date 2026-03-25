@@ -182,8 +182,8 @@ StatusPanel #stat-goals {
 
 /* ── Modal / form ────────────────────────────────────────────────────────── */
 #form-container {
-    width: 64;
-    max-height: 80vh;
+    width: 80;
+    max-height: 85vh;
     height: auto;
     border: round #00d4ff 40%;
     background: #0e0e16;
@@ -231,6 +231,30 @@ Input:focus {
 
 Input.-invalid {
     border: tall #ff4500;
+}
+
+/* ── Prompt editor (TextArea for custom prompts) ─────────────────────────── */
+.prompt-hint {
+    color: #6e6e8e;
+    height: auto;
+    padding: 0;
+    margin: 0;
+}
+
+.prompt-editor {
+    width: 1fr;
+    height: 8;
+    min-height: 4;
+    max-height: 20;
+    background: #12121a;
+    border: tall #1e1e2e;
+    color: #e2e2f0;
+    margin-bottom: 1;
+}
+
+.prompt-editor:focus {
+    border: tall #00d4ff 60%;
+    height: 16;
 }
 
 Button {
