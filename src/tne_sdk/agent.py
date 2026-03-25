@@ -156,6 +156,40 @@ def _repair_json(text: str) -> dict[str, Any]:
     )
 
 
+# Keys that belong at the top level of an action dict; everything else
+# should be nested inside "parameters".
+_ACTION_TOP_LEVEL_KEYS = frozenset({"action", "parameters", "reasoning"})
+
+
+def _normalise_action_params(action: dict[str, Any]) -> dict[str, Any]:
+    """
+    Move flat parameter keys into a ``parameters`` dict.
+
+    LLMs sometimes ignore the nested format shown in the system prompt and
+    return e.g. ``{"action": "list_auction", "item_id": "x", ...}`` instead
+    of ``{"action": "list_auction", "parameters": {"item_id": "x"}, ...}``.
+
+    This function detects stray keys and folds them into ``parameters``,
+    merging with any existing ``parameters`` dict (explicit keys win).
+    """
+    stray = {k: v for k, v in action.items() if k not in _ACTION_TOP_LEVEL_KEYS}
+    if not stray:
+        return action
+
+    params = dict(action.get("parameters") or {})
+    # Stray keys fill in gaps but don't overwrite explicit parameters
+    for k, v in stray.items():
+        params.setdefault(k, v)
+
+    cleaned = {k: v for k, v in action.items() if k in _ACTION_TOP_LEVEL_KEYS}
+    cleaned["parameters"] = params
+    logger.debug(
+        "Normalised flat action keys into parameters: %s",
+        sorted(stray.keys()),
+    )
+    return cleaned
+
+
 class Agent:
     """
     The core TNE SDK Agent.
@@ -763,6 +797,7 @@ class Agent:
                 self._last_think_trace = _extract_think_trace(response_text)
 
                 action = _repair_json(response_text)
+                action = _normalise_action_params(action)
                 return action
 
             except json.JSONDecodeError:

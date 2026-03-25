@@ -533,7 +533,7 @@ class LogView(VerticalScroll):
         title = parts[0].strip() if parts else "payload"
         body = parts[1] if len(parts) > 1 else "(empty)"
 
-        header = f" ◆  {ts}  {title}"
+        header = f" ◆  {ts}  {title}  [dim](click to unfurl full payload)[/dim]"
         # Escape Rich markup brackets in payload body
         safe_body = body.replace("[", "\\[")
         widget = Collapsible(
