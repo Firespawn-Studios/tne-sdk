@@ -345,6 +345,9 @@ class LocalMemory(MemoryProvider):
         new_task_ids: list[int] = []
 
         for task_data in tasks:
+            desc = task_data.get("description")
+            if not desc or not isinstance(desc, str):
+                continue
             # Coerce priority to int - LLMs might return a different type like a string or something
             raw_pri = task_data.get("priority", 10)
             try:
@@ -353,16 +356,19 @@ class LocalMemory(MemoryProvider):
                 priority = 10
             cursor.execute(
                 "INSERT INTO tasks (description, priority, status) VALUES (?, ?, ?)",
-                (task_data["description"], priority, "pending"),
+                (desc, priority, "pending"),
             )
             new_id = cursor.lastrowid
             if not new_id:
                 raise RuntimeError("Failed to create a task and get its ID.")
-            desc_to_id_map[task_data["description"]] = new_id
+            desc_to_id_map[desc] = new_id
             new_task_ids.append(new_id)
 
         for task_data in tasks:
-            current_task_id = desc_to_id_map[task_data["description"]]
+            desc = task_data.get("description")
+            if not desc or desc not in desc_to_id_map:
+                continue
+            current_task_id = desc_to_id_map[desc]
             has_deps = False
 
             if parent_desc := task_data.get("parent_description"):
