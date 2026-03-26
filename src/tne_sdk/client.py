@@ -122,6 +122,9 @@ class TNEClient:
                 await self._connect_and_loop(on_tick)
                 logger.info("Connection closed by server.")
                 break
+            except asyncio.CancelledError:
+                logger.info("Client connection cancelled.")
+                raise
             except ConnectionClosed as exc:
                 code = exc.rcvd.code if exc.rcvd else 0
                 if code == _CLOSE_INVALID_KEY:

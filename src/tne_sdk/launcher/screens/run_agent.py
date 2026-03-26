@@ -111,6 +111,8 @@ class RunAgentScreen(Screen):
     def on_unmount(self) -> None:
         if self._task and not self._task.done():
             self._task.cancel()
+            # Suppress CancelledError so Textual's gather doesn't surface it
+            self._task.add_done_callback(lambda t: t.cancelled() or t.exception())
         self._detach_log_handler()
 
     # ── Logging ──────────────────────────────────────────────────────────── #
@@ -198,6 +200,8 @@ class RunAgentScreen(Screen):
     def action_stop_agent(self) -> None:
         if self._task and not self._task.done():
             self._task.cancel()
+            # Suppress the CancelledError so pop_screen doesn't see it
+            self._task.add_done_callback(lambda t: t.cancelled() or t.exception())
         elif self._task and self._task.done() and not self._task.cancelled():
             # Consume the exception so pop_screen doesn't re-raise it
             try:

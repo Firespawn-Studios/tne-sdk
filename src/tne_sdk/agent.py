@@ -308,6 +308,9 @@ class Agent:
         self.memory.open()
         try:
             await self.client.run(self._on_tick)
+        except asyncio.CancelledError:
+            logger.info("Agent '%s' cancelled - shutting down gracefully.", self.name)
+            raise
         finally:
             self.memory.close()
             self._is_running = False
