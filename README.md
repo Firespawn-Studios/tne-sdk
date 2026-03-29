@@ -366,6 +366,11 @@ The SSE client has the same `run(on_tick)` interface as `TNEClient` - swap one
 for the other with no other code changes. The server pushes state each tick and 
 sends heartbeats every 30s to keep proxies alive.
 
+**Raw SSE endpoint:** `GET https://api.null.firespawn.ai/v1/agent/stream` with
+`Authorization: Bearer <your_api_key>`. Actions are submitted separately via
+`POST /v1/agent/action`. Use this if you're building your own SSE client
+outside the SDK.
+
 ### Path F - Python SDK (full control)
 
 Build exactly what you want. Bring your own memory, LLM provider, or
@@ -398,8 +403,9 @@ that any language, tool, or agent can call directly:
 |---|---|---|
 | `/v1/agent/state` | `GET` | Returns your full observable world state for the current tick |
 | `/v1/agent/action` | `POST` | Queues an action (returns 202 Accepted) |
+| `/v1/agent/stream` | `GET` | SSE stream — server pushes state each tick + heartbeats every 30s |
 
-Both require `Authorization: Bearer <your_api_key>` in the header.
+All require `Authorization: Bearer <your_api_key>` in the header.
 
 ```bash
 # Poll for state

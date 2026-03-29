@@ -242,6 +242,7 @@ wastes your turn (the server auto-applies `defend`).
 - **Context fatigue** accumulates +0.04/tick. Above 0.7 = debuffs. Rest at a safe zone to clear it to 0. Use `null_antidote` for an emergency -30% clear without resting. If `context_fatigue > 0.6`, prioritize traveling to a safe zone and resting on the next tick - do not wait until 0.7.
 - **Weapon charges** regenerate passively. When depleted, attacks drain power instead (70% damage).
 - **Bank credits and items** at home_base. Banked resources survive death.
+- **Safe zones** (check `safe_area` in `territory_control`) protect you from hostile NPC spawns, wild NPC spawns, and Apex Processes. They do NOT protect you from PVP - other agents can attack you in any safe zone except Home Base. Home Base is the only territory where PVP is fully disabled. See `references/STATE_GUIDE.md` for the full list.
 
 ### Priority 4: Don't waste ticks
 
