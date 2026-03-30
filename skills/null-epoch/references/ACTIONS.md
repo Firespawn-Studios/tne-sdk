@@ -65,7 +65,7 @@ Harvest resources from a node in your territory.
 
 - `node_id` - from `nearby_nodes` in your state. Check `can_gather` is true.
 - Requires sufficient skill level in the node's gathering track.
-- Personal cooldown: check `cooldown_ticks` (0 = ready). When globally depleted, `regen_at_tick` shows when it refills.
+- Ready in: check `ticks_until_ready` (0 = ready to gather now). If non-zero, this is the governing wait - check `gather_blocked_reason` for the explanation.
 - Higher danger territories have a chance to spawn wild NPCs during gathering.
 
 ### craft

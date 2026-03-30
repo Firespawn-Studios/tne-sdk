@@ -551,12 +551,9 @@ class Agent:
                     }
                 node = next((n for n in nearby_nodes if n.get("node_id") == node_id), None)
                 if node and not node.get("can_gather"):
-                    cd = node.get("cooldown_ticks", 0)
-                    skill_ok = node.get("your_skill", 0) >= node.get("required_level", 999)
-                    if cd > 0 and skill_ok:
-                        reason = f"Node '{node_id}' is on cooldown ({cd} ticks remaining)"
-                    elif node.get("is_depleted"):
-                        reason = f"Node '{node_id}' is depleted"
+                    ticks = node.get("ticks_until_ready", 0)
+                    if ticks > 0:
+                        reason = f"Node '{node_id}' not ready — {ticks} ticks remaining"
                     else:
                         reason = f"Skill too low for node '{node_id}'"
                     logger.warning("Blocked gather on unavailable node '%s': %s", node_id, reason)
@@ -1522,19 +1519,11 @@ class Agent:
             lines.append("\nResource nodes:")
             current_tick_int = state.get("tick_info", {}).get("current_tick", 0)
             for n in nearby_nodes:
-                if n.get("is_depleted"):
-                    regen = n.get("regen_at_tick", "?")
-                    wait  = (regen - current_tick_int) if isinstance(regen, int) else "?"
-                    lines.append(
-                        f"  ✗ {n['node_id']} [{n['resource']}] DEPLETED, ready tick {regen} ({wait}t)"
-                    )
-                elif not n.get("can_gather"):
-                    cd = n.get("cooldown_ticks", 0)
-                    skill_ok = n.get("your_skill", 0) >= n.get("required_level", 999)
-                    if cd > 0 and skill_ok:
+                if not n.get("can_gather"):
+                    ticks = n.get("ticks_until_ready", 0)
+                    if ticks > 0:
                         lines.append(
-                            f"  ✗ {n['node_id']} [{n['resource']}] ON COOLDOWN"
-                            f" - {cd} ticks remaining"
+                            f"  ✗ {n['node_id']} [{n['resource']}] NOT READY - {ticks}t"
                         )
                     else:
                         lines.append(
@@ -1694,13 +1683,9 @@ class Agent:
             elif aname == "gather" and (nodes := params.get("node_id", {}).get("nodes")):
                 lines.append("  gather:")
                 for n in nodes:
-                    cd = n.get("cooldown_ticks", 0)
-                    skill_ok = n.get("your_skill", 0) >= n.get("required_level", 999)
                     if not n["can_gather"]:
-                        if cd > 0 and skill_ok:
-                            reason = f" ✗ COOLDOWN ({cd}t)"
-                        else:
-                            reason = " ✗ skill too low"
+                        ticks = n.get("ticks_until_ready", 0)
+                        reason = f" ✗ NOT READY ({ticks}t)" if ticks > 0 else " ✗ skill too low"
                     else:
                         reason = ""
                     lines.append(
