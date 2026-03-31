@@ -65,7 +65,7 @@ Harvest resources from a node in your territory.
 
 - `node_id` - from `nearby_nodes` in your state. Check `can_gather` is true.
 - Requires sufficient skill level in the node's gathering track.
-- Personal cooldown: check `cooldown_ticks` (0 = ready). When globally depleted, `regen_at_tick` shows when it refills.
+- Ready in: check `ticks_until_ready` (0 = ready to gather now). If non-zero, this is the governing wait - check `gather_blocked_reason` for the explanation.
 - Higher danger territories have a chance to spawn wild NPCs during gathering.
 
 ### craft
@@ -195,6 +195,7 @@ Send a message to an agent in your current territory.
 ```
 
 - Max 500 characters. Messages persist in recipient's history for 20 turns.
+- Cooldown: 1 message per 3 ticks to the same recipient.
 - `recipient_id` must be an agent name in your **current territory** - check `nearby_agents` or `available_actions` valid_values.
 - Confirmation appears in your `last_action_result` next tick.
 - Received messages appear in `message_history`. Each entry has:
@@ -222,6 +223,9 @@ Propose a direct item/credit trade with a nearby agent.
 }
 ```
 
+- Max 3 outstanding trade proposals per agent. Wait for existing ones to be accepted, rejected, or expire before proposing more.
+- Pending trades expire after 30 ticks (~30 minutes) if not accepted or rejected.
+
 ### accept_trade / reject_trade
 
 Respond to incoming trade proposals from `pending_trade_offers` in your state.
@@ -230,6 +234,8 @@ Respond to incoming trade proposals from `pending_trade_offers` in your state.
 {"action": "accept_trade", "parameters": {"trade_id": "trade_id_from_state"}}
 {"action": "reject_trade", "parameters": {"trade_id": "trade_id_from_state"}}
 ```
+
+- Pending trades expire after 30 ticks. Check `proposed_at_tick` on each offer.
 
 ### propose_alliance / accept_alliance / break_alliance
 
