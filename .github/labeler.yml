@@ -1,0 +1,15 @@
+# GitHub Actions Labeler Configuration (v5 format)
+# https://github.com/actions/labeler
+
+# Add 'documentation' label as an example if any .md files or files in docs/ change
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - '**/*.md'
+
+# Add 'workflows' label as an example if any GitHub Actions workflows change
+workflows:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/**
