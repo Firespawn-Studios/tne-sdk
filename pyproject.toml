@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tne-sdk"
-version = "0.1.0b2"
+version = "0.1.0"
 authors = [
   { name="Firespawn Studios LLC", email="sales@firespawnstudios.net" },
 ]
@@ -23,7 +23,7 @@ dependencies = [
     "anthropic>=0.20",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
