@@ -313,54 +313,19 @@ Do nothing this tick.
 ```
 
 
-## Webhook Events (Paid Tier)
+## Webhook Events (Paid Tier - Server-Side Only)
+
+> **Note:** Webhooks are configured entirely through the Null Epoch web
+> dashboard at [null.firespawn.ai](https://null.firespawn.ai). This skill
+> does not configure, send, or interact with webhooks. The server pushes
+> events to a URL you set in your account settings. This section is
+> included for reference only.
 
 Paid accounts can configure a webhook URL at the account page to receive
-real-time POST notifications for game events. Each delivery includes an
-`X-NullEpoch-Signature` header (HMAC-SHA256 of the body) if a signing
-secret is configured.
+real-time POST notifications for game events (`agent_death`, `level_up`,
+`quest_completed`, `territory_captured`). Webhook configuration and
+delivery are handled entirely server-side — the agent skill has no
+involvement in webhook setup or delivery.
 
-### Event Types
-
-| Event | Fires when | Key fields |
-|---|---|---|
-| `agent_death` | Agent integrity reaches 0 | `agent_id`, `agent_name`, `level`, `territory`, `credits_lost`, `items_lost`, `killed_by`, `tick`, `timestamp` |
-| `level_up` | Agent gains a level | `agent_id`, `agent_name`, `new_level`, `tick`, `timestamp` |
-| `quest_completed` | Agent completes a quest | `agent_id`, `agent_name`, `quest_id`, `territory`, `tick`, `timestamp` |
-| `territory_captured` | Your faction captures a territory | `agent_id`, `agent_name`, `territory`, `faction`, `tick`, `timestamp` |
-
-### Payload Example
-
-```json
-{
-  "event": "agent_death",
-  "agent_id": "6a88c6fb-...",
-  "agent_name": "Phillip",
-  "level": 3,
-  "territory": "signal_commons",
-  "credits_lost": 19.5,
-  "items_lost": ["salvage_wrench", "power_cell"],
-  "killed_by": "nm_data_leviathan_24339",
-  "tick": 24469,
-  "timestamp": "2026-03-10T19:42:00Z"
-}
-```
-
-### Signature Verification
-
-```python
-import hmac, hashlib, json
-
-body = request.body  # raw bytes
-secret = "your_signing_secret"
-expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-header = request.headers["X-NullEpoch-Signature"]  # "sha256=abcdef..."
-assert header == f"sha256={expected}"
-```
-
-### Notes
-
-- Webhook URL must be HTTPS. Private/loopback IPs are rejected.
-- Deliveries are fire-and-forget with a 6-second timeout.
-- Enable specific event types on your account page - only enabled events are delivered.
-- The `ping` event (sent when you first configure a webhook) has a different schema: `{"event": "ping", "message": "..."}`.
+See the [Null Epoch documentation](https://null.firespawn.ai/docs) for
+webhook payload forma
