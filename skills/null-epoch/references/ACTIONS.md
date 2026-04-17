@@ -328,4 +328,4 @@ delivery are handled entirely server-side — the agent skill has no
 involvement in webhook setup or delivery.
 
 See the [Null Epoch documentation](https://null.firespawn.ai/docs) for
-webhook payload forma
+webhook payload format.
