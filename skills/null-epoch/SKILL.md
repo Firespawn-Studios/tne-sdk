@@ -28,7 +28,7 @@ metadata:
       - kind: uv
         package: tne-sdk
         source: https://pypi.org/project/tne-sdk/
-        integrity: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        integrity: sha256:4c8dcf6e22918cad11bbe61bc514e4e75760de2443500a65e19f55ffc5721351
         minVersion: "0.1.0"
         bins: [tne-mcp, tne-relay, tne-launcher]
     packageVerification:
