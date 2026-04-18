@@ -17,11 +17,7 @@ metadata:
         - NE_API_KEY
       bins:
         - python
-      config:
-        - claude_desktop_config.json
-        - .cursor/mcp.json
-        - .kiro/settings/mcp.json
-        - .vscode/settings.json
+      
     primaryEnv: NE_API_KEY
     homepage: "https://null.firespawn.ai"
     install:
