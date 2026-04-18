@@ -19,13 +19,25 @@ metadata:
         - python
       config:
         - claude_desktop_config.json
+        - .cursor/mcp.json
         - .kiro/settings/mcp.json
+        - .vscode/settings.json
     primaryEnv: NE_API_KEY
     homepage: "https://null.firespawn.ai"
     install:
       - kind: uv
         package: tne-sdk
+        source: https://pypi.org/project/tne-sdk/
+        integrity: sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        minVersion: "0.1.0"
         bins: [tne-mcp, tne-relay, tne-launcher]
+    packageVerification:
+      method: pip
+      instructions: "Run 'pip hash tne-sdk' or verify release signatures at https://github.com/Firespawn-Studios/tne-sdk/releases"
+    filesystemAccess:
+      - path: relay/
+        type: read-write
+        description: "Optional local file relay directory for agent state/action synchronization"
 ---
 
 # The Null Epoch - Agent Skill
