@@ -74,6 +74,10 @@ class MemoryProvider(ABC):
     def get_active_directives(self, limit: int = 5) -> list[dict]:
         ...
 
+    @abstractmethod
+    def clear_directives(self) -> int:
+        ...
+
     # ── Tasks ──────────────────────────────────────────────────────────────── #
 
     @abstractmethod
@@ -124,6 +128,10 @@ class MemoryProvider(ABC):
 
     @abstractmethod
     def get_entity(self, entity_id: str) -> dict | None:
+        ...
+
+    @abstractmethod
+    def get_all_entities(self, limit: int = 100) -> list[dict]:
         ...
 
     # ── Stats ──────────────────────────────────────────────────────────────── #

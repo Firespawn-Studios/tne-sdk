@@ -23,11 +23,12 @@ from textual.containers import Horizontal, Vertical
 
 from ..widgets.split_container import ResizableSplit
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Input, Label, Static, TextArea
 
 from ..widgets.log_view import LogView, WidgetLogHandler
 from ..widgets.status_panel import StatusPanel
 from ...models import TickSummary
+from .memory_inspector import MemoryInspectorModal
 
 
 # ── Directive input modal ─────────────────────────────────────────────────── #
@@ -56,9 +57,54 @@ class DirectiveModal(ModalScreen[str | None]):
         else:
             self.action_cancel()
 
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "directive-input":
+            self.action_submit()
+
     def action_submit(self) -> None:
         text = self.query_one("#directive-input", Input).value.strip()
         self.dismiss(text or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+# ── Live Tuning modal ─────────────────────────────────────────────────────── #
+
+class LiveTuningModal(ModalScreen[tuple[str, str] | None]):
+    """Modal for editing persona and temperature on the fly."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(self, current_persona: str, current_temp: str) -> None:
+        super().__init__()
+        self.current_persona = current_persona
+        self.current_temp = current_temp
+
+    def compose(self) -> ComposeResult:
+        with Static(id="form-container"):
+            yield Label("Live Persona / Instructions (Appended to System Prompt):")
+            yield TextArea(self.current_persona, id="persona-input", language="markdown")
+            yield Label("Temperature:")
+            yield Input(value=self.current_temp, id="temp-input")
+            yield Button("Save", variant="primary", id="btn-save")
+            yield Button("Cancel", variant="default", id="btn-cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#persona-input", TextArea).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-save":
+            self.action_submit()
+        else:
+            self.action_cancel()
+
+    def action_submit(self) -> None:
+        persona = self.query_one("#persona-input", TextArea).text.strip()
+        temp = self.query_one("#temp-input", Input).value.strip()
+        self.dismiss((persona, temp))
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -74,6 +120,9 @@ class RunAgentScreen(Screen):
     BINDINGS = [
         Binding("q",      "stop_agent",  "Stop",          priority=True),
         Binding("ctrl+d", "directive",   "Add Directive"),
+        Binding("ctrl+x", "clear_directives", "Clear Directives"),
+        Binding("ctrl+t", "live_tune", "Live Tuning"),
+        Binding("ctrl+b", "inspect_memory", "Memory"),
         Binding("ctrl+l", "toggle_log",  "Log Level"),
     ]
 
@@ -100,7 +149,7 @@ class RunAgentScreen(Screen):
                     yield Button("💾", id="btn-save-logs", classes="log-tool-btn")
                 yield LogView(id="log-view")
         yield Static(
-            "  \\[Ctrl+D] Add Directive   \\[Ctrl+L] Cycle Log Level   \\[Q] Stop Agent",
+            "  \\[Ctrl+D] Add Directive   \\[Ctrl+X] Clear Directives   \\[Ctrl+T] Live Tuning   \\[Ctrl+B] Memory   \\[Ctrl+L] Cycle Log Level   \\[Q] Stop Agent",
             id="run-footer",
         )
 
@@ -221,6 +270,55 @@ class RunAgentScreen(Screen):
             self.notify(f"Directive injected: {text[:60]}")
         except Exception as exc:
             self.notify(str(exc), severity="error")
+
+    def action_clear_directives(self) -> None:
+        if not self._agent:
+            return
+        try:
+            count = self._agent.clear_directives()
+            self.notify(f"Cleared {count} active directives.")
+        except Exception as exc:
+            self.notify(f"Failed to clear directives: {exc}", severity="error")
+
+    def action_live_tune(self) -> None:
+        if not self._agent:
+            return
+        
+        current_persona = self._agent.live_persona_prompt
+        if self._agent.live_temperature is not None:
+            current_temp = str(self._agent.live_temperature)
+        else:
+            thinking = self._agent.config.enable_thinking
+            current_temp = str(self._agent.config.thinking_temperature if thinking else self._agent.config.temperature)
+            
+        self.app.push_screen(
+            LiveTuningModal(current_persona, current_temp), 
+            callback=self._on_live_tune
+        )
+
+    def _on_live_tune(self, result: tuple[str, str] | None) -> None:
+        if result is None or not self._agent:
+            return
+        
+        persona, temp_str = result
+        self._agent.live_persona_prompt = persona
+        
+        try:
+            if temp_str:
+                self._agent.live_temperature = float(temp_str)
+            else:
+                self._agent.live_temperature = None
+        except ValueError:
+            self.notify(f"Invalid temperature '{temp_str}', keeping previous.", severity="warning")
+            
+        self.notify("Live tuning applied! Will take effect on next tick.")
+
+    def action_inspect_memory(self) -> None:
+        if not self._agent or not getattr(self._agent, "memory", None):
+            self.notify("Agent memory not available.", severity="warning")
+            return
+        
+        self.app.push_screen(MemoryInspectorModal(self._agent.memory))
 
     def action_toggle_log(self) -> None:
         if not self._log_handler:

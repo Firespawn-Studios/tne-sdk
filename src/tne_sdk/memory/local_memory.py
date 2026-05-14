@@ -264,6 +264,12 @@ class LocalMemory(MemoryProvider):
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def clear_directives(self) -> int:
+        cur = self._get_conn().execute(
+            "UPDATE directives SET status = 'cleared' WHERE status = 'active'"
+        )
+        return cur.rowcount or 0
+
     # ── Tasks ─────────────────────────────────────────────────────────────── #
 
     def add_task(
@@ -448,6 +454,12 @@ class LocalMemory(MemoryProvider):
             "SELECT data_json FROM entities WHERE entity_id = ?", (entity_id,)
         ).fetchone()
         return json.loads(row["data_json"]) if row else None
+
+    def get_all_entities(self, limit: int = 100) -> list[dict]:
+        rows = self._get_conn().execute(
+            "SELECT data_json FROM entities ORDER BY last_seen DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [json.loads(r["data_json"]) for r in rows]
 
     # ── Stats ─────────────────────────────────────────────────────────────── #
 
