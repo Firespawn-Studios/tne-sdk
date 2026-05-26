@@ -71,8 +71,8 @@ class DirectiveModal(ModalScreen[str | None]):
 
 # ── Live Tuning modal ─────────────────────────────────────────────────────── #
 
-class LiveTuningModal(ModalScreen[tuple[str, str, str, str, str, str] | None]):
-    """Modal for editing prompts and temperature on the fly."""
+class LiveTuningModal(ModalScreen[tuple[str, str, str, str] | None]):
+    """Modal for editing system prompts and temperature on the fly."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
@@ -82,17 +82,13 @@ class LiveTuningModal(ModalScreen[tuple[str, str, str, str, str, str] | None]):
         self,
         system_prompt: str,
         reflection_system_prompt: str,
-        reflection_user_prompt: str,
         tactical_system_prompt: str,
-        tactical_user_prompt: str,
         current_temp: str,
     ) -> None:
         super().__init__()
         self.system_prompt = system_prompt
         self.reflection_system_prompt = reflection_system_prompt
-        self.reflection_user_prompt = reflection_user_prompt
         self.tactical_system_prompt = tactical_system_prompt
-        self.tactical_user_prompt = tactical_user_prompt
         self.current_temp = current_temp
 
     def compose(self) -> ComposeResult:
@@ -117,28 +113,10 @@ class LiveTuningModal(ModalScreen[tuple[str, str, str, str, str, str] | None]):
                 show_line_numbers=False,
             )
 
-            yield Label("Reflection User Prompt Template:")
-            yield TextArea(
-                self.reflection_user_prompt,
-                id="refl-user-input",
-                classes="prompt-editor",
-                tab_behavior="indent",
-                show_line_numbers=False,
-            )
-
             yield Label("Tactical System Prompt:")
             yield TextArea(
                 self.tactical_system_prompt,
                 id="tact-sys-input",
-                classes="prompt-editor",
-                tab_behavior="indent",
-                show_line_numbers=False,
-            )
-
-            yield Label("Tactical User Prompt Template:")
-            yield TextArea(
-                self.tactical_user_prompt,
-                id="tact-user-input",
                 classes="prompt-editor",
                 tab_behavior="indent",
                 show_line_numbers=False,
@@ -162,11 +140,9 @@ class LiveTuningModal(ModalScreen[tuple[str, str, str, str, str, str] | None]):
     def action_submit(self) -> None:
         sys_prompt = self.query_one("#sys-prompt-input", TextArea).text.strip()
         refl_sys = self.query_one("#refl-sys-input", TextArea).text.strip()
-        refl_user = self.query_one("#refl-user-input", TextArea).text.strip()
         tact_sys = self.query_one("#tact-sys-input", TextArea).text.strip()
-        tact_user = self.query_one("#tact-user-input", TextArea).text.strip()
         temp = self.query_one("#temp-input", Input).value.strip()
-        self.dismiss((sys_prompt, refl_sys, refl_user, tact_sys, tact_user, temp))
+        self.dismiss((sys_prompt, refl_sys, tact_sys, temp))
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -348,9 +324,7 @@ class RunAgentScreen(Screen):
 
         system_prompt = self._agent.system_prompt or ""
         reflection_system_prompt = self._agent.reflection_system_prompt or ""
-        reflection_user_prompt = self._agent.reflection_user_prompt or ""
         tactical_system_prompt = self._agent.tactical_system_prompt or ""
-        tactical_user_prompt = self._agent.tactical_user_prompt or ""
 
         if self._agent.live_temperature is not None:
             current_temp = str(self._agent.live_temperature)
@@ -362,39 +336,17 @@ class RunAgentScreen(Screen):
             LiveTuningModal(
                 system_prompt,
                 reflection_system_prompt,
-                reflection_user_prompt,
                 tactical_system_prompt,
-                tactical_user_prompt,
                 current_temp,
             ),
             callback=self._on_live_tune,
         )
 
-    def _on_live_tune(self, result: tuple[str, str, str, str, str, str] | None) -> None:
+    def _on_live_tune(self, result: tuple[str, str, str, str] | None) -> None:
         if result is None or not self._agent:
             return
 
-        sys_prompt, refl_sys, refl_user, tact_sys, tact_user, temp_str = result
-
-        # ── Validate placeholders in user prompts ──
-        errors = []
-        if refl_user:
-            missing = [p for p in ["{knowledge_section}", "{hypotheses_section}", "{event_data}"] if p not in refl_user]
-            if missing:
-                errors.append(f"Reflection User Prompt missing: {', '.join(missing)}")
-        if tact_user:
-            missing = [p for p in ["{status_section}", "{tasks_section}", "{events_section}"] if p not in tact_user]
-            if missing:
-                errors.append(f"Tactical User Prompt missing: {', '.join(missing)}")
-
-        if errors:
-            self.notify("  ".join(errors), severity="error")
-            # Push modal back with current inputs intact
-            self.app.push_screen(
-                LiveTuningModal(sys_prompt, refl_sys, refl_user, tact_sys, tact_user, temp_str),
-                callback=self._on_live_tune,
-            )
-            return
+        sys_prompt, refl_sys, tact_sys, temp_str = result
 
         try:
             if temp_str:
@@ -407,7 +359,7 @@ class RunAgentScreen(Screen):
             self.notify(f"Invalid temperature: {exc}", severity="error")
             # Push modal back with current inputs intact
             self.app.push_screen(
-                LiveTuningModal(sys_prompt, refl_sys, refl_user, tact_sys, tact_user, temp_str),
+                LiveTuningModal(sys_prompt, refl_sys, tact_sys, temp_str),
                 callback=self._on_live_tune,
             )
             return
@@ -415,18 +367,14 @@ class RunAgentScreen(Screen):
         # Apply prompts and temperature overrides to the active agent
         self._agent.system_prompt = sys_prompt
         self._agent.reflection_system_prompt = refl_sys
-        self._agent.reflection_user_prompt = refl_user
         self._agent.tactical_system_prompt = tact_sys
-        self._agent.tactical_user_prompt = tact_user
         self._agent.live_temperature = eff_temp
 
         # Update dynamic in-memory profile
         self._profile.update({
             "system_prompt_text": sys_prompt,
             "reflection_system_prompt_text": refl_sys,
-            "reflection_user_prompt_text": refl_user,
             "tactical_system_prompt_text": tact_sys,
-            "tactical_user_prompt_text": tact_user,
             "temperature": eff_temp,
         })
 
@@ -436,9 +384,7 @@ class RunAgentScreen(Screen):
                 self.app.store.update(self._profile["name"], {
                     "system_prompt_text": sys_prompt,
                     "reflection_system_prompt_text": refl_sys,
-                    "reflection_user_prompt_text": refl_user,
                     "tactical_system_prompt_text": tact_sys,
-                    "tactical_user_prompt_text": tact_user,
                     "temperature": eff_temp,
                 })
                 self.app.store.save()
