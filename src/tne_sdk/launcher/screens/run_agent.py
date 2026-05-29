@@ -19,15 +19,16 @@ from typing import Any
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 
 from ..widgets.split_container import ResizableSplit
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Input, Label, Static, TextArea
 
 from ..widgets.log_view import LogView, WidgetLogHandler
 from ..widgets.status_panel import StatusPanel
 from ...models import TickSummary
+from .memory_inspector import MemoryInspectorModal
 
 
 # ── Directive input modal ─────────────────────────────────────────────────── #
@@ -56,9 +57,92 @@ class DirectiveModal(ModalScreen[str | None]):
         else:
             self.action_cancel()
 
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "directive-input":
+            self.action_submit()
+
     def action_submit(self) -> None:
         text = self.query_one("#directive-input", Input).value.strip()
         self.dismiss(text or None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+# ── Live Tuning modal ─────────────────────────────────────────────────────── #
+
+class LiveTuningModal(ModalScreen[tuple[str, str, str, str] | None]):
+    """Modal for editing system prompts and temperature on the fly."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def __init__(
+        self,
+        system_prompt: str,
+        reflection_system_prompt: str,
+        tactical_system_prompt: str,
+        current_temp: str,
+    ) -> None:
+        super().__init__()
+        self.system_prompt = system_prompt
+        self.reflection_system_prompt = reflection_system_prompt
+        self.tactical_system_prompt = tactical_system_prompt
+        self.current_temp = current_temp
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="form-container"):
+            yield Static(" Live Tuning Console ", id="form-title")
+
+            yield Label("Action System Prompt (Decision Making):")
+            yield TextArea(
+                self.system_prompt,
+                id="sys-prompt-input",
+                classes="prompt-editor",
+                tab_behavior="indent",
+                show_line_numbers=False,
+            )
+
+            yield Label("Reflection System Prompt:")
+            yield TextArea(
+                self.reflection_system_prompt,
+                id="refl-sys-input",
+                classes="prompt-editor",
+                tab_behavior="indent",
+                show_line_numbers=False,
+            )
+
+            yield Label("Tactical System Prompt:")
+            yield TextArea(
+                self.tactical_system_prompt,
+                id="tact-sys-input",
+                classes="prompt-editor",
+                tab_behavior="indent",
+                show_line_numbers=False,
+            )
+
+            yield Label("Temperature:")
+            yield Input(value=self.current_temp, id="temp-input")
+
+            yield Button("Save & Persist", variant="primary", id="btn-save")
+            yield Button("Cancel", variant="default", id="btn-cancel")
+
+    def on_mount(self) -> None:
+        self.query_one("#sys-prompt-input", TextArea).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-save":
+            self.action_submit()
+        else:
+            self.action_cancel()
+
+    def action_submit(self) -> None:
+        sys_prompt = self.query_one("#sys-prompt-input", TextArea).text.strip()
+        refl_sys = self.query_one("#refl-sys-input", TextArea).text.strip()
+        tact_sys = self.query_one("#tact-sys-input", TextArea).text.strip()
+        temp = self.query_one("#temp-input", Input).value.strip()
+        self.dismiss((sys_prompt, refl_sys, tact_sys, temp))
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -74,6 +158,9 @@ class RunAgentScreen(Screen):
     BINDINGS = [
         Binding("q",      "stop_agent",  "Stop",          priority=True),
         Binding("ctrl+d", "directive",   "Add Directive"),
+        Binding("ctrl+x", "clear_directives", "Clear Directives"),
+        Binding("ctrl+t", "live_tune", "Live Tuning"),
+        Binding("ctrl+b", "inspect_memory", "Memory"),
         Binding("ctrl+l", "toggle_log",  "Log Level"),
     ]
 
@@ -100,7 +187,7 @@ class RunAgentScreen(Screen):
                     yield Button("💾", id="btn-save-logs", classes="log-tool-btn")
                 yield LogView(id="log-view")
         yield Static(
-            "  \\[Ctrl+D] Add Directive   \\[Ctrl+L] Cycle Log Level   \\[Q] Stop Agent",
+            "  \\[Ctrl+D] Add Directive   \\[Ctrl+X] Clear Directives   \\[Ctrl+T] Live Tuning   \\[Ctrl+B] Memory   \\[Ctrl+L] Cycle Log Level   \\[Q] Stop Agent",
             id="run-footer",
         )
 
@@ -221,6 +308,98 @@ class RunAgentScreen(Screen):
             self.notify(f"Directive injected: {text[:60]}")
         except Exception as exc:
             self.notify(str(exc), severity="error")
+
+    def action_clear_directives(self) -> None:
+        if not self._agent:
+            return
+        try:
+            count = self._agent.clear_directives()
+            self.notify(f"Cleared {count} active directives.")
+        except Exception as exc:
+            self.notify(f"Failed to clear directives: {exc}", severity="error")
+
+    def action_live_tune(self) -> None:
+        if not self._agent:
+            return
+
+        system_prompt = self._agent.system_prompt or ""
+        reflection_system_prompt = self._agent.reflection_system_prompt or ""
+        tactical_system_prompt = self._agent.tactical_system_prompt or ""
+
+        if self._agent.live_temperature is not None:
+            current_temp = str(self._agent.live_temperature)
+        else:
+            thinking = self._agent.config.enable_thinking
+            current_temp = str(self._agent.config.thinking_temperature if thinking else self._agent.config.temperature)
+
+        self.app.push_screen(
+            LiveTuningModal(
+                system_prompt,
+                reflection_system_prompt,
+                tactical_system_prompt,
+                current_temp,
+            ),
+            callback=self._on_live_tune,
+        )
+
+    def _on_live_tune(self, result: tuple[str, str, str, str] | None) -> None:
+        if result is None or not self._agent:
+            return
+
+        sys_prompt, refl_sys, tact_sys, temp_str = result
+
+        try:
+            if temp_str:
+                eff_temp = float(temp_str)
+                if not (0.0 <= eff_temp <= 2.0):
+                    raise ValueError("must be 0.0–2.0")
+            else:
+                eff_temp = None
+        except ValueError as exc:
+            self.notify(f"Invalid temperature: {exc}", severity="error")
+            # Push modal back with current inputs intact
+            self.app.push_screen(
+                LiveTuningModal(sys_prompt, refl_sys, tact_sys, temp_str),
+                callback=self._on_live_tune,
+            )
+            return
+
+        # Apply prompts and temperature overrides to the active agent
+        self._agent.system_prompt = sys_prompt
+        self._agent.reflection_system_prompt = refl_sys
+        self._agent.tactical_system_prompt = tact_sys
+        self._agent.live_temperature = eff_temp
+
+        # Update dynamic in-memory profile
+        self._profile.update({
+            "system_prompt_text": sys_prompt,
+            "reflection_system_prompt_text": refl_sys,
+            "tactical_system_prompt_text": tact_sys,
+            "temperature": eff_temp,
+        })
+
+        # Save to agents.json via the app profile store
+        try:
+            if hasattr(self.app, "store"):
+                self.app.store.update(self._profile["name"], {
+                    "system_prompt_text": sys_prompt,
+                    "reflection_system_prompt_text": refl_sys,
+                    "tactical_system_prompt_text": tact_sys,
+                    "temperature": eff_temp,
+                })
+                self.app.store.save()
+                self.notify("Live tuning applied & persisted to agents.json! Will take effect on next tick.")
+            else:
+                self.notify("Live tuning applied in-memory! Will take effect on next tick.")
+        except Exception as exc:
+            self.notify(f"Live tuning applied, but failed to persist: {exc}", severity="warning")
+
+    def action_inspect_memory(self) -> None:
+        if not self._agent or not getattr(self._agent, "memory", None):
+            self.notify("Agent memory not available.", severity="warning")
+            return
+        
+        self.app.push_screen(MemoryInspectorModal(self._agent.memory))
 
     def action_toggle_log(self) -> None:
         if not self._log_handler:

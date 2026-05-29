@@ -234,6 +234,9 @@ class Agent:
         self.llm        = llm_provider
         self.name       = name
         self._is_running = False
+        
+        self.live_persona_prompt: str = ""
+        self.live_temperature: float | None = None
 
         self._on_tick_summary_cb = on_tick_summary
 
@@ -321,6 +324,13 @@ class Agent:
         with self.memory:
             self.memory.add_directive(text)
         logger.info("Directive added: %s", text)
+
+    def clear_directives(self) -> int:
+        """Clear all active directives."""
+        with self.memory:
+            count = self.memory.clear_directives()
+        logger.info("Cleared %d active directives.", count)
+        return count
 
     # ── Internal lifecycle ────────────────────────────────────────────────── #
 
@@ -743,9 +753,13 @@ class Agent:
         is disabled, the tag acts as a soft switch for Qwen3-family models
         and a general hint for others to keep responses terse.
         """
+        prompt = base_prompt
+        if self.live_persona_prompt:
+            prompt += f"\n\nLIVE PERSONA / INSTRUCTIONS:\n{self.live_persona_prompt}"
+
         if self.config.enable_thinking:
-            return base_prompt
-        return base_prompt + prompts.NO_THINK_HINT
+            return prompt
+        return prompt + prompts.NO_THINK_HINT
 
     def _effective_max_tokens(self, base: int) -> int:
         """
@@ -776,6 +790,7 @@ class Agent:
 
         for attempt in range(2):
             try:
+                eff_temp = self.live_temperature if self.live_temperature is not None else self.config.temperature
                 response_text = await asyncio.to_thread(
                     self.llm.chat_completion,
                     messages=[
@@ -784,7 +799,7 @@ class Agent:
                     ],
                     model         = self.config.model,
                     max_tokens    = self._effective_max_tokens(self.config.max_tokens_action),
-                    temperature   = self.config.temperature,
+                    temperature   = eff_temp,
                     top_p         = self.config.top_p,
                     thinking_mode = thinking_mode,
                     **kwargs,

@@ -58,6 +58,9 @@ class NullMemory(MemoryProvider):
     def get_active_directives(self, limit: int = 5) -> list[dict]:
         return []
 
+    def clear_directives(self) -> int:
+        return 0
+
     # ── Tasks ─────────────────────────────────────────────────────────────── #
 
     def add_task(
@@ -99,6 +102,9 @@ class NullMemory(MemoryProvider):
 
     def get_entity(self, entity_id: str) -> dict | None:
         return None
+
+    def get_all_entities(self, limit: int = 100) -> list[dict]:
+        return []
 
     # ── Stats ──────────────────────────────────────────────────────────────── #
 
