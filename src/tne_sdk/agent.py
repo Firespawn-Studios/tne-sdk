@@ -968,12 +968,9 @@ class Agent:
 
         inventory   = state.get("inventory", {})
         equip_action = next(
-            (a for a in state.get("available_actions", []) if a.get("action") == "equip"), None
+            (a for a in state.get("available_actions", []) if a.get("action") == "equip_item"), None
         )
-        equippable = (
-            equip_action.get("parameters", {}).get("item_id", {}).get("equippable_items", [])
-            if equip_action else []
-        )
+        equippable = equip_action.get("equippable_items", []) if equip_action else []
 
         # Crafting context for tactical review
         c_skills = state.get("crafting_skills", {})
