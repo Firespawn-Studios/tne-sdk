@@ -48,6 +48,9 @@ class LLMProvider(ABC):
         """Return the assistant response text."""
         ...
 
+    def close(self) -> None:
+        """Release any underlying resources. No-op unless overridden."""
+
 
 class OpenAIProvider(LLMProvider):
     """LLM Provider for the official OpenAI API."""
