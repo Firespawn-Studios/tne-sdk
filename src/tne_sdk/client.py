@@ -29,6 +29,15 @@ OnErrorCallback = Callable[[str, str], None]  # (code, message)
 _CLOSE_INVALID_KEY = 4001
 _CLOSE_DORMANT     = 4003
 
+# Only these mean "do not come back". Every other close - normal (1000), going
+# away (1001), dropped (1006), server error (1011), restart (1012) - is what a
+# deploy or network blip looks like, so the client reconnects.
+_PERMANENT_CLOSES = {
+    _CLOSE_INVALID_KEY: "Invalid API key - connection refused.",
+    _CLOSE_DORMANT:     "Agent is dormant. Connection permanently closed.",
+}
+_CLOSE_NO_STATUS = 1006
+
 # ── Chronicle event types worth surfacing in the TUI ─────────────────────── #
 # These map backend event types to log prefixes that the log_view classifier
 # can pattern-match.  Events not in this set are silently skipped.
@@ -64,6 +73,19 @@ _CHRONICLE_EVENT_TYPES: dict[str, str] = {
     "alliance_broken":     "Chronicle [ALLIANCE]",
     "message_received":    "Chronicle [MESSAGE]",
 }
+
+
+def _parse_frame(raw: str | bytes) -> dict | None:
+    """Decode one server frame; skip anything that is not a JSON object."""
+    try:
+        msg = json.loads(raw)
+    except (TypeError, ValueError):
+        logger.warning("Skipping a server message that is not valid JSON.")
+        return None
+    if not isinstance(msg, dict):
+        logger.warning("Skipping a server message that is not a JSON object.")
+        return None
+    return msg
 
 
 class TNEClient:
@@ -106,6 +128,7 @@ class TNEClient:
 
         scheme    = "wss" if secure else "ws"
         self._uri = f"{scheme}://{host}/v1/agent/ws"
+        self._authenticated = False
 
     async def run(self, on_tick: OnTickCallback) -> None:
         """
@@ -113,32 +136,21 @@ class TNEClient:
 
         Awaits ``on_tick`` with the full state dict for each ``state`` message.
         If the callback returns an action dict it is sent back to the server.
-        Blocks until the connection is permanently closed or ``reconnect`` is False.
+        Blocks until the server rejects the key (4001), the agent is dormant
+        (4003), or a connection ends while ``reconnect`` is False.
         """
         delay = self.reconnect_delay
 
         while True:
+            self._authenticated = False
             try:
-                await self._connect_and_loop(on_tick)
-                logger.info("Connection closed by server.")
-                break
+                code, reason = await self._connect_and_loop(on_tick)
             except asyncio.CancelledError:
                 logger.info("Client connection cancelled.")
                 raise
             except ConnectionClosed as exc:
-                code = exc.rcvd.code if exc.rcvd else 0
-                if code == _CLOSE_INVALID_KEY:
-                    logger.error("Invalid API key - connection refused.")
-                    break
-                if code == _CLOSE_DORMANT:
-                    logger.error("Agent is dormant. Connection permanently closed.")
-                    break
-                if not self.reconnect:
-                    logger.error("Connection closed (code=%d). Reconnect disabled.", code)
-                    break
-                logger.warning("Connection dropped (code=%d). Reconnecting in %.0fs...", code, delay)
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, 60.0)
+                code = exc.rcvd.code if exc.rcvd else _CLOSE_NO_STATUS
+                reason = exc.rcvd.reason if exc.rcvd else ""
             except InvalidHandshake as exc:
                 if not self.reconnect:
                     logger.error("WebSocket handshake failed: %s. Reconnect disabled.", exc)
@@ -146,6 +158,7 @@ class TNEClient:
                 logger.warning("WebSocket handshake failed: %s. Retrying in %.0fs...", exc, delay)
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 60.0)
+                continue
             except OSError as exc:
                 if not self.reconnect:
                     logger.error("Connection failed: %s. Reconnect disabled.", exc)
@@ -153,24 +166,45 @@ class TNEClient:
                 logger.warning("Connection error: %s. Retrying in %.0fs...", exc, delay)
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 60.0)
-            else:
-                delay = self.reconnect_delay
+                continue
 
-    async def _connect_and_loop(self, on_tick: OnTickCallback) -> None:
+            if code in _PERMANENT_CLOSES:
+                logger.error(_PERMANENT_CLOSES[code])
+                break
+            if not self.reconnect:
+                logger.error("Connection closed (code=%d). Reconnect disabled.", code)
+                break
+            if self._authenticated:
+                # The session worked, so this is a fresh failure, not a run of them.
+                delay = self.reconnect_delay
+            logger.warning(
+                "Connection closed (code=%d%s). Reconnecting in %.0fs...",
+                code, f", {reason}" if reason else "", delay,
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60.0)
+
+    async def _connect_and_loop(self, on_tick: OnTickCallback) -> tuple[int, str]:
+        """Run one connection. Returns the close (code, reason) when it ends."""
         logger.info("Connecting to %s...", self._uri)
         async with websockets.connect(self._uri, ping_interval=20, ping_timeout=30) as ws:
             await ws.send(json.dumps({"type": "auth", "api_key": self.api_key}))
-            auth_resp = json.loads(await ws.recv())
-            if auth_resp.get("type") != "auth_ok":
-                logger.error("Authentication failed: %s", auth_resp.get("message", "no reason given"))
-                return
+            # A rejected key closes the socket (4001/4003), raising ConnectionClosed.
+            auth_resp = _parse_frame(await ws.recv())
+            if auth_resp is None or auth_resp.get("type") != "auth_ok":
+                reason = (auth_resp or {}).get("message", "no reason given")
+                logger.error("Authentication failed: %s", reason)
+                return _CLOSE_INVALID_KEY, reason
 
+            self._authenticated = True
             logger.info("Authenticated.")
             _last_logged_result_tick: int | None = None
             _last_logged_event_tick: int = 0
 
             async for raw in ws:
-                msg      = json.loads(raw)
+                msg = _parse_frame(raw)
+                if msg is None:
+                    continue
                 msg_type = msg.get("type")
 
                 if msg_type == "state":
@@ -241,6 +275,9 @@ class TNEClient:
                     logger.warning("Server error [%s]: %s", msg.get("code"), msg.get("message"))
                 else:
                     logger.debug("Unknown message type: %s", msg_type)
+
+        # The server closed cleanly; the async for ends without raising.
+        return ws.close_code or _CLOSE_NO_STATUS, ws.close_reason or ""
 
     # ── Chronicle event logging ──────────────────────────────────────────── #
 
