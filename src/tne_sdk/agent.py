@@ -160,33 +160,56 @@ def _repair_json(text: str) -> dict[str, Any]:
 # should be nested inside "parameters".
 _ACTION_TOP_LEVEL_KEYS = frozenset({"action", "parameters", "reasoning"})
 
+# The only parameters whose values are objects (trade item maps). The server
+# (v1.0.34+) rejects the whole action if any other parameter holds an object,
+# so extras like "thoughts": {...} must never reach it.
+_OBJECT_PARAM_KEYS = frozenset({"offer_items", "request_items"})
+
+
+def _is_plain(value: Any) -> bool:
+    return value is None or isinstance(value, (str, int, float, bool))
+
 
 def _normalise_action_params(action: dict[str, Any]) -> dict[str, Any]:
     """
-    Move flat parameter keys into a ``parameters`` dict.
+    Return the action with a clean ``parameters`` dict.
 
     LLMs sometimes ignore the nested format shown in the system prompt and
     return e.g. ``{"action": "list_auction", "item_id": "x", ...}`` instead
     of ``{"action": "list_auction", "parameters": {"item_id": "x"}, ...}``.
+    Stray plain values are folded into ``parameters`` (explicit keys win).
 
-    This function detects stray keys and folds them into ``parameters``,
-    merging with any existing ``parameters`` dict (explicit keys win).
+    Extra objects and lists the LLM adds (``"thoughts": {...}``, ``"plan":
+    [...]``) are dropped instead, as are object values inside ``parameters``
+    other than the trade item maps: the server rejects the whole action for
+    those. A ``parameters`` value that is not an object is treated as empty.
     """
-    stray = {k: v for k, v in action.items() if k not in _ACTION_TOP_LEVEL_KEYS}
-    if not stray:
-        return action
+    raw_params = action.get("parameters")
+    params = dict(raw_params) if isinstance(raw_params, dict) else {}
+    dropped = [] if raw_params is None or isinstance(raw_params, dict) else ["parameters"]
 
-    params = dict(action.get("parameters") or {})
-    # Stray keys fill in gaps but don't overwrite explicit parameters
-    for k, v in stray.items():
-        params.setdefault(k, v)
+    for key, value in list(params.items()):
+        if isinstance(value, dict) and key not in _OBJECT_PARAM_KEYS:
+            del params[key]
+            dropped.append(key)
+
+    folded = []
+    for key, value in action.items():
+        if key in _ACTION_TOP_LEVEL_KEYS:
+            continue
+        keep = _is_plain(value) or (key in _OBJECT_PARAM_KEYS and isinstance(value, dict))
+        if not keep:
+            dropped.append(key)
+        elif key not in params:
+            params[key] = value
+            folded.append(key)
 
     cleaned = {k: v for k, v in action.items() if k in _ACTION_TOP_LEVEL_KEYS}
     cleaned["parameters"] = params
-    logger.debug(
-        "Normalised flat action keys into parameters: %s",
-        sorted(stray.keys()),
-    )
+    if folded:
+        logger.debug("Normalised flat action keys into parameters: %s", sorted(folded))
+    if dropped:
+        logger.debug("Dropped action fields the server would reject: %s", sorted(dropped))
     return cleaned
 
 
