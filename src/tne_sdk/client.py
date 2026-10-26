@@ -8,9 +8,10 @@ message loop that drives the agent's tick-by-tick lifecycle.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
-from typing import Awaitable, Callable
+from typing import AsyncIterator, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,13 @@ _PERMANENT_CLOSES = {
     _CLOSE_DORMANT:     "Agent is dormant. Connection permanently closed.",
 }
 _CLOSE_NO_STATUS = 1006
+
+# Stall watchdog. A connection can stay open, with keepalive pings answered,
+# after the server has stopped sending this agent anything. If no game message
+# arrives for this many tick intervals while the client is idle, reconnect.
+_WATCHDOG_TICKS         = 3
+_DEFAULT_TICK_INTERVAL  = 60.0  # used until the first state reports the real one
+_CLOSE_WATCHDOG         = 4000  # sent by this client, never by the server
 
 # ── Chronicle event types worth surfacing in the TUI ─────────────────────── #
 # These map backend event types to log prefixes that the log_view classifier
@@ -129,6 +137,9 @@ class TNEClient:
         scheme    = "wss" if secure else "ws"
         self._uri = f"{scheme}://{host}/v1/agent/ws"
         self._authenticated = False
+        self._last_heard    = 0.0
+        self._in_turn       = False
+        self._tick_interval = _DEFAULT_TICK_INTERVAL
 
     async def run(self, on_tick: OnTickCallback) -> None:
         """
@@ -156,7 +167,7 @@ class TNEClient:
                     logger.error("WebSocket handshake failed: %s. Reconnect disabled.", exc)
                     raise
                 logger.warning("WebSocket handshake failed: %s. Retrying in %.0fs...", exc, delay)
-                await asyncio.sleep(delay)
+                await self._backoff(delay)
                 delay = min(delay * 2, 60.0)
                 continue
             except OSError as exc:
@@ -164,7 +175,7 @@ class TNEClient:
                     logger.error("Connection failed: %s. Reconnect disabled.", exc)
                     raise
                 logger.warning("Connection error: %s. Retrying in %.0fs...", exc, delay)
-                await asyncio.sleep(delay)
+                await self._backoff(delay)
                 delay = min(delay * 2, 60.0)
                 continue
 
@@ -181,13 +192,57 @@ class TNEClient:
                 "Connection closed (code=%d%s). Reconnecting in %.0fs...",
                 code, f", {reason}" if reason else "", delay,
             )
-            await asyncio.sleep(delay)
+            await self._backoff(delay)
             delay = min(delay * 2, 60.0)
+
+    async def _backoff(self, seconds: float) -> None:
+        await asyncio.sleep(seconds)
+
+    def _mark_heard(self) -> None:
+        self._last_heard = asyncio.get_running_loop().time()
+
+    @contextlib.asynccontextmanager
+    async def _stall_watchdog(self, ws) -> AsyncIterator[None]:
+        """Run _watchdog for the lifetime of one connection."""
+        self._mark_heard()
+        task = asyncio.create_task(self._watchdog(ws))
+        try:
+            yield
+        finally:
+            task.cancel()
+
+    async def _watchdog(self, ws) -> None:
+        """Close the connection if the game goes quiet while the client is idle.
+
+        Sleeps until the deadline (last message + limit) rather than polling,
+        so a healthy connection wakes it about once every couple of minutes.
+
+        Time inside on_tick (an LLM turn) does not count: frames that arrive
+        meanwhile wait in the socket buffer and are read once the turn ends,
+        and the clock restarts then.
+        """
+        loop = asyncio.get_running_loop()
+        while True:
+            limit = _WATCHDOG_TICKS * self._tick_interval
+            if self._in_turn:
+                await asyncio.sleep(limit)
+                continue
+            remaining = self._last_heard + limit - loop.time()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+                continue
+            logger.warning(
+                "No game state for %.0fs (limit %.0fs); reconnecting.",
+                loop.time() - self._last_heard, limit,
+            )
+            await ws.close(code=_CLOSE_WATCHDOG, reason="client watchdog: no game state")
+            return
 
     async def _connect_and_loop(self, on_tick: OnTickCallback) -> tuple[int, str]:
         """Run one connection. Returns the close (code, reason) when it ends."""
         logger.info("Connecting to %s...", self._uri)
-        async with websockets.connect(self._uri, ping_interval=20, ping_timeout=30) as ws:
+        async with websockets.connect(self._uri, ping_interval=20, ping_timeout=30) as ws, \
+                   self._stall_watchdog(ws):
             await ws.send(json.dumps({"type": "auth", "api_key": self.api_key}))
             # A rejected key closes the socket (4001/4003), raising ConnectionClosed.
             auth_resp = _parse_frame(await ws.recv())
@@ -202,13 +257,18 @@ class TNEClient:
             _last_logged_event_tick: int = 0
 
             async for raw in ws:
+                self._mark_heard()
                 msg = _parse_frame(raw)
                 if msg is None:
                     continue
                 msg_type = msg.get("type")
 
                 if msg_type == "state":
-                    current_tick = msg.get("tick_info", {}).get("current_tick", "?")
+                    tick_info    = msg.get("tick_info") or {}
+                    current_tick = tick_info.get("current_tick", "?")
+                    interval     = tick_info.get("tick_interval_seconds")
+                    if isinstance(interval, (int, float)) and interval > 0:
+                        self._tick_interval = float(interval)
                     logger.debug("State tick %s", current_tick)
 
                     # ── Chronicle: surface recent_events as rich log entries ── #
@@ -243,6 +303,7 @@ class TNEClient:
                             "Result (tick %s): %s %s → %s %s%s",
                             prev_tick, icon, action_name, status.upper(), summary, detail_str,
                         )
+                    self._in_turn = True
                     try:
                         action = await on_tick(msg)
                         if action:
@@ -260,6 +321,9 @@ class TNEClient:
                             await ws.send(json.dumps(action))
                     except Exception as exc:
                         logger.exception("on_tick raised: %s", exc)
+                    finally:
+                        self._in_turn = False
+                        self._mark_heard()
 
                 elif msg_type == "action_queued":
                     logger.info(
