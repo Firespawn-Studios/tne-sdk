@@ -187,6 +187,39 @@ TOOLS = [
 # API client - thin wrapper around your existing REST endpoints
 # ---------------------------------------------------------------------------
 
+_MAX_ERROR_CHARS = 2000
+
+
+def _check_response(resp: Any) -> None:
+    """Raise with the server's own explanation when a request fails.
+
+    raise_for_status() only gives "400 Bad Request for url ...", which hides
+    the reason (e.g. the list of valid actions) from the assistant. The server
+    answers in one of three shapes: {"detail": "text"}, {"detail": [validation
+    errors]} or, when rate limited, {"error": "text"}.
+    """
+    if resp.is_success:
+        return
+    try:
+        body = resp.json()
+    except ValueError:
+        body = None
+    message = ""
+    if isinstance(body, dict):
+        detail = body.get("detail", body.get("error"))
+        if isinstance(detail, list):
+            message = "; ".join(
+                f"{'.'.join(str(p) for p in e.get('loc', []))}: {e.get('msg', '')}"
+                if isinstance(e, dict) else str(e)
+                for e in detail
+            )
+        elif detail is not None:
+            message = str(detail)
+    if not message:
+        message = resp.text or resp.reason_phrase
+    raise RuntimeError(f"HTTP {resp.status_code}: {message[:_MAX_ERROR_CHARS]}")
+
+
 class _GameAPI:
     """Synchronous HTTP client for the Null Epoch REST API."""
 
@@ -206,7 +239,7 @@ class _GameAPI:
             headers=self.headers,
             timeout=15.0,
         )
-        resp.raise_for_status()
+        _check_response(resp)
         return resp.json()
 
     def submit_action(self, action: str, parameters: dict | None = None,
@@ -223,7 +256,7 @@ class _GameAPI:
             json=body,
             timeout=15.0,
         )
-        resp.raise_for_status()
+        _check_response(resp)
         return resp.json()
 
 
