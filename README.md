@@ -333,6 +333,12 @@ echo '{"action": "wait"}' > relay/action.json   # send an action
 cat relay/result.json                   # check server confirmation
 ```
 
+`result.json` holds `{"status": "queued", ...}` when the server accepts an
+action, or `{"status": "error", "code": ..., "message": ...}` when it refuses
+one or `action.json` can't be read. The message says why, so fix the action
+and write it again. The relay reconnects on its own after deploys and network
+drops.
+
 ```bash
 tne-relay --api-key KEY --timeout 60     # longer timeout
 tne-relay --api-key KEY --no-timeout     # wait forever

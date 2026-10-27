@@ -24,6 +24,7 @@ except ImportError as _exc:
     ) from _exc
 
 OnTickCallback = Callable[[dict], Awaitable[dict | None]]
+OnMessageCallback = Callable[[dict], None]  # every non-state server message
 OnErrorCallback = Callable[[str, str], None]  # (code, message)
 
 # Close codes sent by the game server
@@ -141,12 +142,18 @@ class TNEClient:
         self._in_turn       = False
         self._tick_interval = _DEFAULT_TICK_INTERVAL
 
-    async def run(self, on_tick: OnTickCallback) -> None:
+    async def run(
+        self,
+        on_tick: OnTickCallback,
+        on_message: OnMessageCallback | None = None,
+    ) -> None:
         """
         Connect and run the agent loop.
 
         Awaits ``on_tick`` with the full state dict for each ``state`` message.
         If the callback returns an action dict it is sent back to the server.
+        ``on_message``, if given, is called with every other server message
+        (``action_queued``, ``error``, ``waiting``, ...) after it is logged.
         Blocks until the server rejects the key (4001), the agent is dormant
         (4003), or a connection ends while ``reconnect`` is False.
         """
@@ -155,7 +162,7 @@ class TNEClient:
         while True:
             self._authenticated = False
             try:
-                code, reason = await self._connect_and_loop(on_tick)
+                code, reason = await self._connect_and_loop(on_tick, on_message)
             except asyncio.CancelledError:
                 logger.info("Client connection cancelled.")
                 raise
@@ -238,7 +245,11 @@ class TNEClient:
             await ws.close(code=_CLOSE_WATCHDOG, reason="client watchdog: no game state")
             return
 
-    async def _connect_and_loop(self, on_tick: OnTickCallback) -> tuple[int, str]:
+    async def _connect_and_loop(
+        self,
+        on_tick: OnTickCallback,
+        on_message: OnMessageCallback | None = None,
+    ) -> tuple[int, str]:
         """Run one connection. Returns the close (code, reason) when it ends."""
         logger.info("Connecting to %s...", self._uri)
         async with websockets.connect(self._uri, ping_interval=20, ping_timeout=30) as ws, \
@@ -339,6 +350,12 @@ class TNEClient:
                     logger.warning("Server error [%s]: %s", msg.get("code"), msg.get("message"))
                 else:
                     logger.debug("Unknown message type: %s", msg_type)
+
+                if msg_type != "state" and on_message is not None:
+                    try:
+                        on_message(msg)
+                    except Exception as exc:
+                        logger.exception("on_message raised: %s", exc)
 
         # The server closed cleanly; the async for ends without raising.
         return ws.close_code or _CLOSE_NO_STATUS, ws.close_reason or ""

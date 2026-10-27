@@ -93,77 +93,24 @@ class FileRelayClient:
         self._uri = f"{scheme}://{host}/v1/agent/ws"
 
     async def run(self) -> None:
-        """Start the relay. Blocks until stopped or connection fails permanently."""
-        try:
-            import websockets  # noqa: F401
-        except ImportError as exc:
-            raise ImportError(
-                "websockets is required for the file relay. "
-                "Install with: pip install tne-sdk"
-            ) from exc
+        """Start the relay. Blocks until stopped or the connection ends for good.
+
+        The connection itself (reconnects, stall watchdog) is TNEClient's; the
+        relay only moves state, actions and server replies to and from files.
+        """
+        from .client import TNEClient
 
         self._print_banner()
-        delay = self.reconnect_delay
+        client = TNEClient(
+            api_key         = self.api_key,
+            host            = self.host,
+            secure          = self.secure,
+            reconnect       = self.reconnect,
+            reconnect_delay = self.reconnect_delay,
+        )
+        await client.run(self._on_state, on_message=self._on_message)
 
-        while True:
-            try:
-                await self._connect_and_relay()
-                logger.info("Relay connection closed cleanly.")
-                break
-            except Exception as e:
-                # Import here to avoid top-level websockets dependency for SSE-only users
-                from websockets.exceptions import ConnectionClosed
-                if isinstance(e, ConnectionClosed):
-                    code = e.rcvd.code if e.rcvd else 0
-                    if code == 4001:
-                        logger.error("Invalid API key.")
-                        break
-                    if code == 4003:
-                        logger.error("Agent is dormant.")
-                        break
-                if not self.reconnect:
-                    raise
-                logger.warning("Connection error: %s. Reconnecting in %.0fs...", e, delay)
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, 60.0)
-
-    async def _connect_and_relay(self) -> None:
-        import websockets
-
-        logger.info("Connecting to %s...", self._uri)
-        async with websockets.connect(self._uri, ping_interval=20, ping_timeout=30) as ws:
-            await ws.send(json.dumps({"type": "auth", "api_key": self.api_key}))
-            auth = json.loads(await ws.recv())
-            if auth.get("type") != "auth_ok":
-                logger.error("Authentication failed.")
-                return
-            logger.info("Relay connected and authenticated.")
-
-            async for raw in ws:
-                msg = json.loads(raw)
-                msg_type = msg.get("type")
-
-                if msg_type == "state":
-                    await self._handle_state(ws, msg)
-                elif msg_type == "action_queued":
-                    self._write_json(self._result_file, {
-                        "status": "queued",
-                        "action": msg.get("action"),
-                        "for_tick": (msg.get("tick") or 0) + 1,
-                    })
-                    action_name = msg.get("action", "?")
-                    params = msg.get("parameters", {})
-                    params_str = " ".join(
-                        f"{k}={v}" for k, v in params.items()
-                    ) if params else ""
-                    display = f"{action_name} {params_str}".strip()
-                    logger.info("Action queued: %s", display)
-                elif msg_type == "waiting":
-                    logger.info("Waiting: %s", msg.get("message"))
-                elif msg_type == "error":
-                    logger.warning("Server error [%s]: %s", msg.get("code"), msg.get("message"))
-
-    async def _handle_state(self, ws, state: dict[str, Any]) -> None:
+    async def _on_state(self, state: dict[str, Any]) -> dict[str, Any]:
         tick = state.get("tick_info", {}).get("current_tick", "?")
         territory = state.get("current_territory", "?")
         hp = state.get("integrity", 0)
@@ -180,16 +127,23 @@ class FileRelayClient:
             "Tick %s | %s | HP %s/%s | Waiting for action (%s)",
             tick, territory, hp, max_hp, timeout_str,
         )
+        return await self._wait_for_action()
 
-        action = await self._wait_for_action()
-        action_name = action.get("action", "?")
-        params = action.get("parameters", {})
-        params_str = " ".join(
-            f"{k}={v}" for k, v in params.items()
-        ) if params else ""
-        display = f"{action_name} {params_str}".strip()
-        logger.info("Sending: %s", display)
-        await ws.send(json.dumps(action))
+    def _on_message(self, msg: dict[str, Any]) -> None:
+        """Report the server's reply to the last action in result.json."""
+        msg_type = msg.get("type")
+        if msg_type == "action_queued":
+            self._write_json(self._result_file, {
+                "status": "queued",
+                "action": msg.get("action"),
+                "for_tick": (msg.get("tick") or 0) + 1,
+            })
+        elif msg_type == "error":
+            self._write_json(self._result_file, {
+                "status": "error",
+                "code": msg.get("code"),
+                "message": msg.get("message"),
+            })
 
     async def _wait_for_action(self) -> dict[str, Any]:
         elapsed = 0.0
@@ -198,15 +152,26 @@ class FileRelayClient:
                 try:
                     raw = self._action_file.read_text(encoding="utf-8").strip()
                     action = json.loads(raw)
-                    self._action_file.unlink(missing_ok=True)
-                    return action
                 except (json.JSONDecodeError, OSError) as e:
-                    logger.warning("Bad action.json: %s", e)
-                    self._action_file.unlink(missing_ok=True)
+                    self._reject_action_file(f"action.json is not valid JSON: {e}")
+                else:
+                    if isinstance(action, dict):
+                        self._action_file.unlink(missing_ok=True)
+                        return action
+                    self._reject_action_file(
+                        'action.json must be a JSON object such as {"action": "wait"}.'
+                    )
             await asyncio.sleep(POLL_INTERVAL)
             elapsed += POLL_INTERVAL
 
         return {"action": "wait", "reasoning": "Timeout, no action submitted."}
+
+    def _reject_action_file(self, message: str) -> None:
+        logger.warning("Bad action.json: %s", message)
+        self._action_file.unlink(missing_ok=True)
+        self._write_json(self._result_file, {
+            "status": "error", "code": "invalid_action_file", "message": message,
+        })
 
     def _print_banner(self) -> None:
         abs_dir = self.relay_dir.absolute()
