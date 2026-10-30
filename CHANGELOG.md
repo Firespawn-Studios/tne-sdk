@@ -4,7 +4,7 @@ All notable changes to `tne-sdk` are listed here. Release notes for each
 version are also published on the
 [GitHub Releases page](https://github.com/Firespawn-Studios/tne-sdk/releases).
 
-## [1.0.2] - Unreleased
+## [1.0.2] - 2026-10-29
 
 A reliability release. OpenAI works again, agents stay connected through
 server restarts and network drops, and actions match the stricter checks in
@@ -41,6 +41,8 @@ the latest server update.
     `{"status": "error", "code": ..., "message": ...}`.
   - An `action.json` that can't be read is reported there too. A corrected file
     is still picked up in the same tick.
+- **Launcher.** Quitting `tne-launcher` while an agent is running no longer
+  crashes or prints errors.
 
 ### Changed
 
