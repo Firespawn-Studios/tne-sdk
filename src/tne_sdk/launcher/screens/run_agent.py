@@ -169,7 +169,10 @@ class RunAgentScreen(Screen):
         self._profile  = profile
         self._log_dir  = log_dir
         self._agent:   Any | None  = None
-        self._task:    asyncio.Task | None = None
+        # Not ``_task``: Textual's MessagePump uses that name for the screen's
+        # own message loop and awaits it on shutdown.
+        self._agent_task: asyncio.Task | None = None
+        self._llm:   Any | None  = None
         self._log_handler: WidgetLogHandler | None = None
 
     def compose(self) -> ComposeResult:
@@ -196,10 +199,15 @@ class RunAgentScreen(Screen):
         self._start_agent()
 
     def on_unmount(self) -> None:
-        if self._task and not self._task.done():
-            self._task.cancel()
-            # Suppress CancelledError so Textual's gather doesn't surface it
-            self._task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        if self._agent_task and not self._agent_task.done():
+            self._agent_task.cancel()
+            # Mark the CancelledError/exception as retrieved
+            self._agent_task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        if self._llm is not None:
+            # Also aborts an in-flight request running in a worker thread,
+            # which task.cancel() cannot interrupt.
+            self._llm.close()
+            self._llm = None
         self._detach_log_handler()
 
     # ── Logging ──────────────────────────────────────────────────────────── #
@@ -245,6 +253,7 @@ class RunAgentScreen(Screen):
         client = TNEClient(api_key=profile["api_key"], host=raw_host, secure=secure)
         memory = LocalMemory(agent_name=profile["name"], db_path=self._log_dir)
         llm    = provider_from_profile(profile, timeout=cfg.llm_timeout)
+        self._llm = llm
 
         self._agent = Agent(
             config           = cfg,
@@ -258,19 +267,23 @@ class RunAgentScreen(Screen):
         )
 
         # Schedule agent on Textual's event loop
-        self._task = asyncio.get_running_loop().create_task(
+        self._agent_task = asyncio.get_running_loop().create_task(
             self._agent.run(),
             name=f"agent-{profile['name']}",
         )
-        self._task.add_done_callback(self._on_agent_done)
+        self._agent_task.add_done_callback(self._on_agent_done)
 
     def _on_agent_done(self, task: asyncio.Task) -> None:
         if task.cancelled():
-            self.notify("Agent stopped.", severity="warning")
+            message, severity = "Agent stopped.", "warning"
         elif exc := task.exception():
-            self.notify(f"Agent crashed: {exc}", severity="error")
+            message, severity = f"Agent crashed: {exc}", "error"
         else:
-            self.notify("Agent finished.")
+            message, severity = "Agent finished.", "information"
+        try:
+            self.notify(message, severity=severity)
+        except Exception:
+            pass  # may fire after the app has shut down
 
     # ── TickSummary callback ──────────────────────────────────────────────── #
 
@@ -285,14 +298,14 @@ class RunAgentScreen(Screen):
     # ── Actions ──────────────────────────────────────────────────────────── #
 
     def action_stop_agent(self) -> None:
-        if self._task and not self._task.done():
-            self._task.cancel()
+        if self._agent_task and not self._agent_task.done():
+            self._agent_task.cancel()
             # Suppress the CancelledError so pop_screen doesn't see it
-            self._task.add_done_callback(lambda t: t.cancelled() or t.exception())
-        elif self._task and self._task.done() and not self._task.cancelled():
+            self._agent_task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        elif self._agent_task and self._agent_task.done() and not self._agent_task.cancelled():
             # Consume the exception so pop_screen doesn't re-raise it
             try:
-                self._task.result()
+                self._agent_task.result()
             except Exception:
                 pass
         self.app.pop_screen()

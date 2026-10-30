@@ -581,6 +581,11 @@ class WidgetLogHandler(logging.Handler):
         self._log_view = log_view
 
     def emit(self, record: logging.LogRecord) -> None:
+        # During shutdown Textual unmounts the LogView before the owning
+        # screen's on_unmount detaches this handler, while the agent task may
+        # still be logging. Drop those records instead of raising MountError.
+        if not self._log_view.is_attached:
+            return
         try:
             self._log_view.write_record(record)
         except Exception:

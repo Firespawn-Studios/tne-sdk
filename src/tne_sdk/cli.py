@@ -144,6 +144,8 @@ def run_main() -> None:
         asyncio.run(agent.run())
     except KeyboardInterrupt:
         logger.info("Interrupted, agent stopped.")
+    finally:
+        llm.close()
 
 
 # ── tne-launcher ─────────────────────────────────────────────────────────── #
