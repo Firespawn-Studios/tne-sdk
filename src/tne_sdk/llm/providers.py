@@ -11,11 +11,12 @@ Supports:
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,14 @@ class LLMProvider(ABC):
         """Release any underlying resources. No-op unless overridden."""
 
 
+# Sampling params local servers accept but the official OpenAI API does not.
+# Used only if the openai client's create() signature cannot be read.
+_NON_OPENAI_PARAMS = frozenset({
+    "top_k", "min_p", "repetition_penalty", "chat_template_kwargs",
+    "typical_p", "mirostat", "num_ctx",
+})
+
+
 class OpenAIProvider(LLMProvider):
     """LLM Provider for the official OpenAI API."""
 
@@ -63,6 +72,37 @@ class OpenAIProvider(LLMProvider):
             )
         self._client = _openai_sdk.OpenAI(api_key=self.api_key)
         self.default_model = default_model
+        self._dropped_params: set[str] = set()
+        self._is_supported: Callable[[str], bool] | None = None
+
+    def _supported_check(self) -> Callable[[str], bool]:
+        """Build the param check once per provider, on first use."""
+        try:
+            params = inspect.signature(self._client.chat.completions.create).parameters
+        except (TypeError, ValueError):
+            return lambda name: name not in _NON_OPENAI_PARAMS
+        if any(p.kind is p.VAR_KEYWORD for p in params.values()):
+            return lambda name: True
+        accepted = frozenset(params)
+        return lambda name: name in accepted
+
+    def _supported_kwargs(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Drop params the openai client would reject.
+
+        The agent always sends local-server params such as top_k. The openai
+        client raises TypeError on any keyword create() does not declare, before
+        any request is made, so every turn failed.
+        """
+        if self._is_supported is None:
+            self._is_supported = self._supported_check()
+        kept: dict[str, Any] = {}
+        for name, value in kwargs.items():
+            if self._is_supported(name):
+                kept[name] = value
+            elif name not in self._dropped_params:
+                self._dropped_params.add(name)
+                logger.warning("OpenAI API does not support %r; not sending it.", name)
+        return kept
 
     def chat_completion(
         self,
@@ -75,15 +115,13 @@ class OpenAIProvider(LLMProvider):
         **kwargs: Any,
     ) -> str:
         model_to_use = model or self.default_model
-        # Strip SDK-unknown params
-        kwargs.pop("chat_template_kwargs", None)
         response = self._client.chat.completions.create(
             model=model_to_use,
             messages=[{"role": m.role, "content": m.content} for m in messages],
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
-            **kwargs,
+            **self._supported_kwargs(kwargs),
         )
         return response.choices[0].message.content or ""
 
